@@ -171,8 +171,10 @@ object LocalEnvironmentManager {
     fun getTmpDir(context: Context): File = File(getPrefixDir(context), "tmp")
     fun getHomeDir(context: Context): File = File(context.filesDir, "home")
     fun getProjectsDir(context: Context): File = File(getHomeDir(context), "projects")
-    fun getUbuntuRootDir(context: Context): File = File(context.filesDir, "ubuntu")
-    fun isTermuxPackage(context: Context): Boolean = context.packageName == "com.termux"
+    fun isTermuxPackage(context: Context): Boolean {
+        val pkg = context.packageName
+        return pkg == "com.termux" || pkg == "com.aura.ai" || pkg.startsWith("com.aura.")
+    }
 
     fun ensureProotExtracted(context: Context): String {
         val binDir = File(context.filesDir, "bin")
@@ -458,13 +460,16 @@ object LocalEnvironmentManager {
     }
 
     fun isInstalled(context: Context): Boolean {
+        val binDir = getBinDir(context)
+        val homeDir = getHomeDir(context)
+        val hasLocalBootstrap = (binDir.exists() && binDir.isDirectory && (File(binDir, "sh").exists() || File(binDir, "dash").exists() || File(binDir, "bash").exists() || File(binDir, "busybox").exists())) &&
+                homeDir.exists()
+        if (hasLocalBootstrap) return true
+
         if (!isTermuxPackage(context)) {
             return isUbuntuInstalled(context)
         }
-        val binDir = getBinDir(context)
-        val homeDir = getHomeDir(context)
-        return (binDir.exists() && binDir.isDirectory && (File(binDir, "sh").exists() || File(binDir, "dash").exists() || File(binDir, "bash").exists() || File(binDir, "busybox").exists())) &&
-                homeDir.exists()
+        return false
     }
 
     fun getInstallPath(context: Context): String {
@@ -2464,6 +2469,7 @@ All files created here persist inside the application.
             env["PREFIX"] = prefix.absolutePath
             env["HOME"] = home.absolutePath
             env["PATH"] = "${home.absolutePath}/.local/bin:${bin.absolutePath}:${bin.absolutePath}/applets:/system/bin:/system/xbin"
+            env["LD_LIBRARY_PATH"] = lib.absolutePath
             env["TMPDIR"] = tmp.absolutePath
             env["TERM"] = "xterm-256color"
             env["COLORTERM"] = "truecolor"

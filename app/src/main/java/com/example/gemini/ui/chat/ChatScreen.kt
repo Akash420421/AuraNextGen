@@ -1308,17 +1308,38 @@ fun ChatScreen(
                         }
                     },
                     title = {
+                        val statusDotColor = when {
+                            isLocalRunning -> Color(0xFF10B981)
+                            isLocalStarting -> Color(0xFFF59E0B)
+                            else -> Color(0xFFEF4444)
+                        }
                         Box(
                             modifier = Modifier.fillMaxWidth(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "AURA AI",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.5.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { showLocalServerOutputDialog = true }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(statusDotColor)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "AURA AI",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     },
                     navigationIcon = {
@@ -1428,7 +1449,10 @@ fun ChatScreen(
                                         statusColors = agentEntries.associate { it.agent to it.color }
                                     )
                                 }
-                                com.example.gemini.ui.components.ServerStoppedPromptCard()
+                                com.example.gemini.ui.components.ServerStoppedPromptCard(
+                                    onStartServer = restartLocalServer,
+                                    onViewLogs = { showLocalServerOutputDialog = true }
+                                )
                             }
                         }
                     } else if (isAgyChat && isServerInitializing && messages.isEmpty()) {

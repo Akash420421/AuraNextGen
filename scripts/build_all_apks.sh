@@ -31,37 +31,25 @@ echo "📦 Version Name: v${VERSION_NAME} (Code: ${VERSION_CODE})"
 mkdir -p "${OUTPUT_DIR}"
 
 if [[ "${MODE}" == "release" ]]; then
-    # echo "🔨 Compiling Standard Release (:app:assembleStandardRelease)..."
-    # "${ROOT_DIR}/gradlew" -p "${ROOT_DIR}" :app:assembleStandardRelease
-    # for now let build for termux build only
+    echo "🔨 Compiling Aura AI Release (:app:assembleAuraRelease)..."
+    "${ROOT_DIR}/gradlew" -p "${ROOT_DIR}" :app:assembleAuraRelease
+
     echo "🔨 Compiling Termux Release (:app:assembleTermuxRelease)..."
     "${ROOT_DIR}/gradlew" -p "${ROOT_DIR}" :app:assembleTermuxRelease
 
-    echo "🔨 Compiling Termux Shared Release (:app:assembleTermuxSharedRelease)..."
-    "${ROOT_DIR}/gradlew" -p "${ROOT_DIR}" :app:assembleTermuxSharedRelease
-
     APKS_SRC="${ROOT_DIR}/app/build/outputs/apk"
-    # find "${APKS_SRC}/standard/release" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/antiGem-standard-v${VERSION_NAME}-release.apk" \;
-    find "${APKS_SRC}/termux/release" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/antiGem-termux-v${VERSION_NAME}-release.apk" \;
-    find "${APKS_SRC}/termuxShared/release" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/antiGem-termux-shared-v${VERSION_NAME}-release.apk" \;
-
-    # if [[ -f "${ROOT_DIR}/app/src/main/assets/bin/agy_ide_bridge" ]]; then
-    #     cp "${ROOT_DIR}/app/src/main/assets/bin/agy_ide_bridge" "${OUTPUT_DIR}/agy_ide_bridge-v${VERSION_NAME}-android-arm64"
-    # fi
+    find "${APKS_SRC}/aura/release" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/AuraAI-v${VERSION_NAME}-release.apk" \;
+    find "${APKS_SRC}/termux/release" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/AuraAI-termux-v${VERSION_NAME}-release.apk" \;
 else
-    echo "🔨 Compiling Standard Debug (:app:assembleStandardDebug)..."
-    "${ROOT_DIR}/gradlew" -p "${ROOT_DIR}" :app:assembleStandardDebug
+    echo "🔨 Compiling Aura AI Debug (:app:assembleAuraDebug)..."
+    "${ROOT_DIR}/gradlew" -p "${ROOT_DIR}" :app:assembleAuraDebug
 
     echo "🔨 Compiling Termux Debug (:app:assembleTermuxDebug)..."
     "${ROOT_DIR}/gradlew" -p "${ROOT_DIR}" :app:assembleTermuxDebug
 
-    echo "🔨 Compiling Termux Shared Debug (:app:assembleTermuxSharedDebug)..."
-    "${ROOT_DIR}/gradlew" -p "${ROOT_DIR}" :app:assembleTermuxSharedDebug
-
     APKS_SRC="${ROOT_DIR}/app/build/outputs/apk"
-    find "${APKS_SRC}/standard/debug" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/antiGem-standard-v${VERSION_NAME}-debug.apk" \;
-    find "${APKS_SRC}/termux/debug" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/antiGem-termux-v${VERSION_NAME}-debug.apk" \;
-    find "${APKS_SRC}/termuxShared/debug" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/antiGem-termux-shared-v${VERSION_NAME}-debug.apk" \;
+    find "${APKS_SRC}/aura/debug" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/AuraAI-v${VERSION_NAME}-debug.apk" \;
+    find "${APKS_SRC}/termux/debug" -name "*.apk" -exec cp {} "${OUTPUT_DIR}/AuraAI-termux-v${VERSION_NAME}-debug.apk" \;
 
     # the APK ships the bridge xz-compressed; the uncompressed build is kept under app/build
     if [[ -f "${ROOT_DIR}/app/build/intermediates/agyIdeBridge/agy_ide_bridge" ]]; then

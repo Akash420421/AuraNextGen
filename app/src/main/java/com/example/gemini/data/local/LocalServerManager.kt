@@ -357,6 +357,19 @@ object LocalServerManager {
             return
         }
 
+        val bridgePort = try {
+            java.net.URI(AuthPreferences.currentBridgeHttpUrl).port.takeIf { it > 0 } ?: com.example.gemini.BuildConfig.BRIDGE_PORT
+        } catch (_: Exception) {
+            com.example.gemini.BuildConfig.BRIDGE_PORT
+        }
+
+        if (!forceRestart && AgyBridgeService.instance.checkServerHealth("http://127.0.0.1:$bridgePort")) {
+            Log.d(TAG, "[ServerManager] Bridge is already healthy on port $bridgePort, adopting running instance")
+            _status.value = LocalServerStatus.Running()
+            AgyBridgeService.instance.recomputeSystemConnectionState()
+            return
+        }
+
         if (!LocalEnvironmentManager.isInstalled(context)) {
             Log.d(TAG, "[ServerManager] Bootstrap not installed, skipping server start")
             return
@@ -438,6 +451,7 @@ object LocalServerManager {
             try {
                 val req = Request.Builder()
                     .url("$bridgeUrl/api/shutdown")
+                    .header(AuthPreferences.currentFramedHeader, "true")
                     .post("{}".toRequestBody(null))
                     .build()
                 AgyBridgeService.instance.fastClient.newCall(req).execute().close()

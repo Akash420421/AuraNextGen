@@ -3,6 +3,7 @@ package com.example.gemini.ui.components
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -530,10 +532,12 @@ fun NewChatCheckingAuthPromptCard(
 
 /**
  * Clean, friendly card displayed when the server is stopped / offline.
- * Informs the user that the engine is offline and instructs them to tap the header status dot to start, restart, stop, or view logs.
+ * Allows one-tap server start and live log viewing.
  */
 @Composable
 fun ServerStoppedPromptCard(
+    onStartServer: () -> Unit = {},
+    onViewLogs: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -547,13 +551,14 @@ fun ServerStoppedPromptCard(
             modifier = Modifier
                 .size(60.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                .background(ClaudeTerracotta.copy(alpha = 0.12f))
+                .clickable { onStartServer() },
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Outlined.PowerSettingsNew,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                contentDescription = "Start Server",
+                tint = ClaudeTerracotta,
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -571,12 +576,59 @@ fun ServerStoppedPromptCard(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "The local AI engine is currently stopped. Tap the status dot in the top header to start, restart, or stop the server and inspect live logs.",
+            text = "The local AI engine is currently stopped. Tap 'Start Engine' below to launch the server, or view live logs.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
             textAlign = TextAlign.Center,
             lineHeight = 20.sp
         )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(
+                onClick = onStartServer,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ClaudeTerracotta,
+                    contentColor = Color.White
+                ),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Start Engine",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            OutlinedButton(
+                onClick = onViewLogs,
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Terminal,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Logs",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
     }
 }
 

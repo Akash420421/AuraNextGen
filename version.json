@@ -1,11 +1,12 @@
 {
-  "version_code": 123,
-  "version_name": "1.2.0",
+  "version_code": 124,
+  "version_name": "1.2.1",
   "min_supported_version_code": 1,
   "changelog": [
-    "Aura AI UI Redesign with Chat and Voice Home Screens",
-    "Interactive 3D Particle Orb with Sphere-to-Triangle morphing",
-    "Seamless Jarvis voice integration and new pill input design"
+    "Dedicated independent package com.aura.ai (installs side-by-side with zero Termux conflict)",
+    "Automatic background server auto-start & resilient bridge port management",
+    "One-tap server launch & live logs inspection directly from Chat screen",
+    "Aura AI Chat & Voice home screens with 3D Morphing Particle Orb"
   ],
   "is_critical": false
 }

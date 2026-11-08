@@ -16,7 +16,7 @@ class AgentPreferences(context: Context) {
     private val _enabled = MutableStateFlow(read(prefs))
     val enabled: StateFlow<Set<AgentKind>> = _enabled.asStateFlow()
 
-    private val _hasChosen = MutableStateFlow(prefs.getBoolean(KEY_CHOSEN, false))
+    private val _hasChosen = MutableStateFlow(prefs.getBoolean(KEY_CHOSEN, true))
     /** The first-launch agent choice was made. */
     val hasChosen: StateFlow<Boolean> = _hasChosen.asStateFlow()
 
@@ -44,7 +44,7 @@ class AgentPreferences(context: Context) {
 
         /** The first-launch agent choice was made, read synchronously (the server does not start before it). */
         fun hasChosenSync(context: Context): Boolean =
-            context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CHOSEN, false)
+            context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CHOSEN, true)
 
         /** Enabled agents, read synchronously (bridge launch). */
         fun enabledSync(context: Context): Set<AgentKind> =
