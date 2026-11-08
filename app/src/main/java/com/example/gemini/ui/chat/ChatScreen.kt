@@ -1636,7 +1636,6 @@ fun ChatScreen(
                                 }
                             }
                         }
-                    }
                     } else {
                         val currentDensity = androidx.compose.ui.platform.LocalDensity.current
                         val customDensity = remember(currentDensity, chatFontScale) {
