@@ -67,7 +67,7 @@ jobs:
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
-        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'release') || contains(github.event.head_commit.modified, 'version.json')
+        if: success()
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Aura AI ${{ steps.version.outputs.name }}

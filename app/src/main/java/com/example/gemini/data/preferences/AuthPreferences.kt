@@ -152,8 +152,8 @@ class AuthPreferences(private val context: Context) {
         private const val LEGACY_HUB_URL = "http://127.0.0.1:1235"
         private const val LEGACY_BRIDGE_HTTP_URL = "http://127.0.0.1:1234"
 
-        fun migrateHubUrl(url: String): String = if (url.trimEnd('/') == LEGACY_HUB_URL) DEFAULT_HUB_URL else url
-        fun migrateBridgeUrl(url: String): String = if (url.trimEnd('/') == LEGACY_BRIDGE_HTTP_URL) DEFAULT_BRIDGE_HTTP_URL else url
+        fun migrateHubUrl(url: String): String = if (url.trimEnd('/') == LEGACY_HUB_URL || (com.example.gemini.BuildConfig.HUB_PORT != 1235 && url.trimEnd('/') == "http://127.0.0.1:1235")) DEFAULT_HUB_URL else url
+        fun migrateBridgeUrl(url: String): String = if (url.trimEnd('/') == LEGACY_BRIDGE_HTTP_URL || (com.example.gemini.BuildConfig.BRIDGE_PORT != 1234 && url.trimEnd('/') == "http://127.0.0.1:1234")) DEFAULT_BRIDGE_HTTP_URL else url
 
         @Volatile
         var currentHubUrl: String = DEFAULT_HUB_URL
@@ -261,8 +261,16 @@ class AuthPreferences(private val context: Context) {
     init {
         val savedHub = syncPrefs.getString("agy_hub_url", null)
         val savedBridgeHttp = syncPrefs.getString("agy_bridge_http_url", null)
-        if (!savedHub.isNullOrBlank()) currentHubUrl = migrateHubUrl(savedHub)
-        if (!savedBridgeHttp.isNullOrBlank()) currentBridgeHttpUrl = migrateBridgeUrl(savedBridgeHttp)
+        if (!savedHub.isNullOrBlank()) {
+            val migrated = migrateHubUrl(savedHub)
+            currentHubUrl = migrated
+            if (migrated != savedHub) syncPrefs.edit().putString("agy_hub_url", migrated).apply()
+        }
+        if (!savedBridgeHttp.isNullOrBlank()) {
+            val migrated = migrateBridgeUrl(savedBridgeHttp)
+            currentBridgeHttpUrl = migrated
+            if (migrated != savedBridgeHttp) syncPrefs.edit().putString("agy_bridge_http_url", migrated).apply()
+        }
         val inspectorOn = syncPrefs.getBoolean("is_network_inspector_enabled", false)
         val inspectorFloating = syncPrefs.getBoolean("is_floating_network_inspector_enabled", false)
         com.example.gemini.data.remote.inspector.NetworkInspectorManager.isEnabled = inspectorOn

@@ -267,7 +267,13 @@ class LocalPtySession(
                 LocalEnvironmentManager.ensureClaudeWrapper(context)
                 LocalEnvironmentManager.ensureTermuxApiDispatcher(context)
 
-                val loginShellBinaries = arrayOf("login", "bash", "zsh", "fish", "sh")
+                val loginShellBinaries = if (!initialCommand.isNullOrBlank()) {
+                    arrayOf("bash", "sh", "zsh", "fish")
+                } else if (context.packageName == "com.termux") {
+                    arrayOf("login", "bash", "zsh", "fish", "sh")
+                } else {
+                    arrayOf("bash", "sh", "zsh", "fish")
+                }
 
                 val shellBinary = when {
                     forceShell != null && File(bin, forceShell).exists() && File(bin, forceShell).canExecute() -> File(bin, forceShell).absolutePath
@@ -325,14 +331,14 @@ class LocalPtySession(
 
                 val envList = envMap.map { "${it.key}=${it.value}" }.toTypedArray()
 
-                val isLoginShell = shellBinary != "/system/bin/sh"
+                val isLoginShell = shellBinary != "/system/bin/sh" && initialCommand.isNullOrBlank()
                 val processName = (if (isLoginShell) "-" else "") + File(shellBinary).name
                 val cwd = if (File(workingDirectory).exists()) workingDirectory else home.absolutePath
                 val shellArgs = if (!initialCommand.isNullOrBlank()) {
                     if (execShellAfterCommand) {
-                        arrayOf(processName, "-c", "$initialCommand; exec $shellBinary")
+                        arrayOf(File(shellBinary).name, "-c", "$initialCommand; exec $shellBinary")
                     } else {
-                        arrayOf(processName, "-c", initialCommand)
+                        arrayOf(File(shellBinary).name, "-c", initialCommand)
                     }
                 } else {
                     arrayOf(processName)

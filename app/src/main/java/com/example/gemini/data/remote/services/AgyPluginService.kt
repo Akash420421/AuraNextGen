@@ -186,15 +186,23 @@ class AgyPluginService(
 
                     val envMap = cmdEntry.env.toMutableMap()
                     // Android / Termux environment loader injection
-                    val isAndroidTermux = java.io.File("/data/data/com.termux/files/usr/lib/libtermux-exec.so").exists() ||
-                                          System.getenv("PREFIX") != null ||
-                                          (System.getProperty("java.vendor")?.contains("Android", ignoreCase = true) == true)
-                    if (isAndroidTermux && !AuthPreferences.currentRemoteMode) {
-                        if (!envMap.containsKey("LD_PRELOAD") && java.io.File("/data/data/com.termux/files/usr/lib/libtermux-exec.so").exists()) {
-                            envMap["LD_PRELOAD"] = "/data/data/com.termux/files/usr/lib/libtermux-exec.so"
+                    val libCandidates = listOf(
+                        System.getenv("PREFIX")?.let { "$it/lib/libtermux-exec.so" },
+                        "/data/data/com.aura.ai/files/usr/lib/libtermux-exec.so",
+                        "/data/data/com.termux/files/usr/lib/libtermux-exec.so"
+                    )
+                    val termuxExec = libCandidates.firstOrNull { it != null && java.io.File(it).exists() }
+                    val isAndroid = termuxExec != null ||
+                                    System.getenv("PREFIX") != null ||
+                                    (System.getProperty("java.vendor")?.contains("Android", ignoreCase = true) == true)
+                    if (isAndroid && !AuthPreferences.currentRemoteMode) {
+                        if (!envMap.containsKey("LD_PRELOAD") && termuxExec != null) {
+                            envMap["LD_PRELOAD"] = termuxExec
                         }
                         if (!envMap.containsKey("PATH")) {
-                            envMap["PATH"] = "/data/data/com.termux/files/home/.local/bin:/data/data/com.termux/files/usr/bin:/system/bin"
+                            val homePrefix = System.getenv("HOME") ?: "/data/data/com.aura.ai/files/home"
+                            val usrPrefix = System.getenv("PREFIX") ?: "/data/data/com.aura.ai/files/usr"
+                            envMap["PATH"] = "$homePrefix/.local/bin:$usrPrefix/bin:/system/bin"
                         }
                     }
 

@@ -363,7 +363,20 @@ object LocalServerManager {
             com.example.gemini.BuildConfig.BRIDGE_PORT
         }
 
-        if (!forceRestart && AgyBridgeService.instance.checkServerHealth("http://127.0.0.1:$bridgePort")) {
+        val bridgeAuthHeader = AuthPreferences.currentFramedHeader
+        val isHealthyOurInstance = !forceRestart && withContext(Dispatchers.IO) {
+            try {
+                val req = okhttp3.Request.Builder()
+                    .url("http://127.0.0.1:$bridgePort/api/server/info")
+                    .header(bridgeAuthHeader, "true")
+                    .get()
+                    .build()
+                AgyBridgeService.instance.fastClient.newCall(req).execute().use { it.isSuccessful }
+            } catch (_: Exception) {
+                false
+            }
+        }
+        if (isHealthyOurInstance) {
             Log.d(TAG, "[ServerManager] Bridge is already healthy on port $bridgePort, adopting running instance")
             _status.value = LocalServerStatus.Running()
             AgyBridgeService.instance.recomputeSystemConnectionState()
@@ -411,6 +424,7 @@ object LocalServerManager {
                 context = appContext,
                 isSsh = false,
                 initialCommand = command,
+                forceShell = "bash",
                 initialCols = 80,
                 initialRows = 24
             )

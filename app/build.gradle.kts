@@ -52,12 +52,13 @@ android {
     flavorDimensions += "mode"
     productFlavors {
         // Dedicated standalone Aura AI flavor with distinct applicationId (com.aura.ai)
+        // Local ports differ so Aura AI and AntiGem/Termux can run simultaneously side by side without conflict.
         create("aura") {
             dimension = "mode"
             applicationId = "com.aura.ai"
-            buildConfigField("int", "BRIDGE_PORT", "1234")
-            buildConfigField("int", "HUB_PORT", "1235")
-            buildConfigField("int", "BROWSER_MCP_PORT", "8765")
+            buildConfigField("int", "BRIDGE_PORT", "1244")
+            buildConfigField("int", "HUB_PORT", "1245")
+            buildConfigField("int", "BROWSER_MCP_PORT", "8769")
             buildConfigField("boolean", "IS_SHARED_USER_ID", "false")
         }
         // Local ports differ per app so com.antigem and com.termux can be installed and run side by side

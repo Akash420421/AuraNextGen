@@ -1,12 +1,12 @@
 {
-  "version_code": 124,
-  "version_name": "1.2.1",
+  "version_code": 125,
+  "version_name": "1.2.2",
   "min_supported_version_code": 1,
   "changelog": [
-    "Dedicated independent package com.aura.ai (installs side-by-side with zero Termux conflict)",
-    "Automatic background server auto-start & resilient bridge port management",
-    "One-tap server launch & live logs inspection directly from Chat screen",
-    "Aura AI Chat & Voice home screens with 3D Morphing Particle Orb"
+    "Fixed login shell Permission Denied by executing bash directly for server runner",
+    "Separated default ports to 1244/1245 to completely eliminate collision with AntiGem (1234/1235)",
+    "Added automatic URL/port migration and token-authenticated bridge health verification",
+    "Patched hardcoded Termux shebangs and set executable permissions on bootstrap binaries"
   ],
   "is_critical": false
 }

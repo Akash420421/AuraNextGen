@@ -2177,6 +2177,29 @@ object LocalEnvironmentManager {
                 try { Os.symlink("dash", shFile.absolutePath) } catch (_: Exception) {}
             }
         }
+        // Ensure login shebang uses the active package prefix and is executable
+        val loginFile = File(binDir, "login")
+        if (loginFile.exists()) {
+            try {
+                val content = loginFile.readText()
+                if (content.contains("/data/data/com.termux/files/usr/bin/sh")) {
+                    loginFile.writeText(content.replace("/data/data/com.termux/files/usr/bin/sh", "${binDir.absolutePath}/sh"))
+                }
+                loginFile.setExecutable(true, false)
+                Os.chmod(loginFile.absolutePath, 493)
+            } catch (_: Exception) {}
+        }
+
+        // Ensure all binaries in binDir have execute permissions
+        try {
+            binDir.listFiles()?.forEach { f ->
+                if (f.isFile && !f.name.endsWith(".txt") && !f.name.endsWith(".conf")) {
+                    f.setExecutable(true, false)
+                    f.setReadable(true, false)
+                    try { Os.chmod(f.absolutePath, 493) } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
 
         projectsDir.mkdirs()
 
