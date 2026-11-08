@@ -31,7 +31,7 @@ fun AuraVoiceScreen(
     modifier: Modifier = Modifier
 ) {
     val phase by JarvisController.phase.collectAsState()
-    val isAutoSend by JarvisPreferences.autoSend.collectAsState()
+    val isAutoSend by JarvisPreferences.autoSend.state.collectAsState()
 
     Column(
         modifier = modifier
