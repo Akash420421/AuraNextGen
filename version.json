@@ -1,12 +1,13 @@
 {
-  "version_code": 125,
-  "version_name": "1.2.2",
+  "version_code": 126,
+  "version_name": "1.2.3",
   "min_supported_version_code": 1,
   "changelog": [
-    "Fixed login shell Permission Denied by executing bash directly for server runner",
-    "Separated default ports to 1244/1245 to completely eliminate collision with AntiGem (1234/1235)",
-    "Added automatic URL/port migration and token-authenticated bridge health verification",
-    "Patched hardcoded Termux shebangs and set executable permissions on bootstrap binaries"
+    "Redesigned main AURA AI Home/Chat interface to clean, minimal light theme",
+    "Centered AURA AI title in borderless header with matching icons",
+    "Pill-shaped compact Chat / Voice segmented switcher",
+    "Clean single-row rounded composer with one voice record mic and dedicated Send button",
+    "Smooth responsive keyboard handling with upper-middle greeting and subtitle"
   ],
   "is_critical": false
 }

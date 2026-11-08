@@ -27,11 +27,12 @@ fun AuraModeToggle(
     onModeSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = com.example.gemini.theme.isAppInDarkTheme()
     val isChat = currentMode == "chat"
-    val containerBg = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-    val activeBg = MaterialTheme.colorScheme.surface
-    val activeTextColor = MaterialTheme.colorScheme.onSurface
-    val inactiveTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+    val containerBg = if (isDark) Color(0xFF2C2C2E) else Color(0xFFE8E8ED)
+    val activeBg = if (isDark) Color(0xFF3A3A3C) else Color.White
+    val activeTextColor = if (isDark) Color.White else Color(0xFF1A1A1A)
+    val inactiveTextColor = Color(0xFF8E8E93)
 
     Box(
         modifier = modifier
@@ -50,7 +51,7 @@ fun AuraModeToggle(
                     .height(34.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .then(
-                        if (isChat) Modifier.shadow(2.dp, RoundedCornerShape(20.dp)).background(activeBg)
+                        if (isChat) Modifier.shadow(1.dp, RoundedCornerShape(20.dp), spotColor = Color(0x18000000)).background(activeBg)
                         else Modifier
                     )
                     .clickable(
@@ -74,7 +75,7 @@ fun AuraModeToggle(
                     .height(34.dp)
                     .clip(RoundedCornerShape(20.dp))
                     .then(
-                        if (!isChat) Modifier.shadow(2.dp, RoundedCornerShape(20.dp)).background(activeBg)
+                        if (!isChat) Modifier.shadow(1.dp, RoundedCornerShape(20.dp), spotColor = Color(0x18000000)).background(activeBg)
                         else Modifier
                     )
                     .clickable(

@@ -605,7 +605,7 @@ fun ChatInputBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 6.dp)
+                .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
             QueuedMessagesCard(
                 messages = queuedMessages,
@@ -614,15 +614,16 @@ fun ChatInputBar(
                 modifier = Modifier.padding(bottom = 6.dp)
             )
 
-            // Claude-style unified rounded input card
+            // Minimal rounded input card matching reference design
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                color = com.example.gemini.theme.AppColors.card,
+                shape = RoundedCornerShape(32.dp),
+                color = if (isDark) com.example.gemini.theme.AppColors.card else Color.White,
                 border = BorderStroke(
                     1.dp,
-                    if (isDark) Color.White.copy(alpha = 0.08f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                )
+                    if (isDark) Color.White.copy(alpha = 0.08f) else Color(0xFFE5E5EA)
+                ),
+                shadowElevation = 1.dp
             ) {
                 if (isRecordingAudio) {
                     val infiniteTransition = rememberInfiniteTransition(label = "recPulse")
@@ -893,39 +894,7 @@ fun ChatInputBar(
                             }
                         }
 
-                        // 1. Text Field Area on Top
-                        TextField(
-                        state = textFieldState,
-                        placeholder = {
-                            Text(
-                                text = "Ask anything",
-                                fontSize = 15.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f)
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(focusRequester)
-                            .padding(horizontal = 4.dp, vertical = 2.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            disabledContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            cursorColor = ClaudeTerracotta
-                        ),
-                        textStyle = TextStyle(
-                            fontSize = 15.sp,
-                            lineHeight = 21.sp
-                        ),
-                        lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default)
-                    )
-
-                    // 2. Attachments Preview (if any)
+                    // 1. Attachments Preview (if any)
                     if (attachments.isNotEmpty() || isUploadingAttachment) {
                         Row(
                             modifier = Modifier
@@ -1100,148 +1069,111 @@ fun ChatInputBar(
                             .padding(start = 4.dp, end = 4.dp, bottom = 2.dp, top = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // [+] Attachment Button
+                        // Left: Circular Add Button [+]
                         Surface(
                             onClick = onAttachClick,
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.background,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-                            modifier = Modifier.size(34.dp)
+                            color = if (isDark) Color(0xFF3A3A3C) else Color(0xFFF2F2F7),
+                            modifier = Modifier.size(42.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Outlined.Add,
                                     contentDescription = "Add attachments",
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
-                                    modifier = Modifier.size(19.dp)
+                                    tint = if (isDark) Color.White else Color(0xFF2C2C2E),
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
 
-                        // Middle Area: Model Selector Pill (takes up to 100% of the available space between [+] and right actions)
+                        // Center: Text Input Field with placeholder "Ask anything"
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(horizontal = 6.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
-                            Surface(
-                                onClick = {
-                                    focusManager.clearFocus(force = true)
-                                    keyboardController?.hide()
-                                    onOpenModelSelector()
-                                },
-                                shape = RoundedCornerShape(18.dp),
-                                color = MaterialTheme.colorScheme.background,
-                                border = BorderStroke(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                                )
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.AutoAwesome,
-                                        contentDescription = null,
-                                        tint = familyColor,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
+                            TextField(
+                                state = textFieldState,
+                                placeholder = {
                                     Text(
-                                        text = selectedModel.displayName,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false)
+                                        text = "Ask anything",
+                                        fontSize = 15.5.sp,
+                                        color = Color(0xFF8E8E93)
                                     )
-
-                                    val pct = quota?.percentage
-                                    if (pct != null) {
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        val badgeColor = if (pct > 50) QuotaGreen else if (pct > 20) QuotaAmber else QuotaRed
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(badgeColor.copy(alpha = 0.15f))
-                                                .padding(horizontal = 4.dp, vertical = 1.dp)
-                                        ) {
-                                            Text(
-                                                text = "$pct%",
-                                                fontSize = 9.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = badgeColor
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                    Icon(
-                                        imageVector = Icons.Default.KeyboardArrowDown,
-                                        contentDescription = "Switch Model",
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        // Dedicated Speech-to-Text Live Dictation Button (AGY Hub)
-                        if (voiceEnabled && !isStreaming && !isRecordingAudio) {
-                            Surface(
-                                onClick = {
-                                    if (isLiveDictating) {
-                                        stopLiveDictation()
-                                    } else {
-                                        startLiveDictation()
-                                    }
                                 },
-                                shape = CircleShape,
-                                color = if (isLiveDictating) GeminiBlue.copy(alpha = 0.15f) else MaterialTheme.colorScheme.background,
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isLiveDictating) GeminiBlue.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(focusRequester),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    disabledContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                    focusedTextColor = if (isDark) Color.White else Color(0xFF1A1A1A),
+                                    unfocusedTextColor = if (isDark) Color.White else Color(0xFF1A1A1A),
+                                    cursorColor = if (isDark) Color.White else Color(0xFF1A1A1A)
                                 ),
-                                modifier = Modifier.size(34.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.GraphicEq,
-                                        contentDescription = if (isLiveDictating) "Stop Dictation" else "Live Dictation",
-                                        tint = if (isLiveDictating) GeminiBlue else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
+                                textStyle = TextStyle(
+                                    fontSize = 15.5.sp,
+                                    lineHeight = 21.sp
+                                ),
+                                lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 5),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default)
+                            )
                         }
 
-                        // Action Button (Send / Stop / Voice Recorder). While the agent works, a typed message is
-                        // sent (it is queued, or injected by Claude); Stop shows when the box is empty.
-                        if (isStreaming && !canSend) {
-                            Surface(
-                                onClick = onStopStreaming,
-                                shape = CircleShape,
-                                color = ClaudeTerracotta,
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.Stop,
-                                        contentDescription = "Stop",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                        // Right: [Mic] [Send ↑]
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            // 1. Microphone / Audio Record Button (One clean button)
+                            if (voiceEnabled) {
+                                Surface(
+                                    onClick = {
+                                        if (voiceNotesAsText) {
+                                            startAutoTranscribe()
+                                        } else {
+                                            recordMode = AudioRecordMode.VOICE_NOTE
+                                            triggerMicClick()
+                                        }
+                                    },
+                                    shape = CircleShape,
+                                    color = Color.Transparent,
+                                    modifier = Modifier.size(38.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Mic,
+                                            contentDescription = if (voiceNotesAsText) "Record and transcribe" else "Record voice note",
+                                            tint = if (isDark) Color.White.copy(alpha = 0.85f) else Color(0xFF2C2C2E),
+                                            modifier = Modifier.size(23.dp)
+                                        )
+                                    }
                                 }
                             }
-                        } else if (canSend) {
-                            val sendBtnColor = if (!isAuth) com.example.gemini.theme.AppColors.textSecondary else if (!isOnline) com.example.gemini.theme.AppColors.textSecondary else if (isBackgroundActive) com.example.gemini.theme.AppColors.warning else ClaudeTerracotta
+
+                            // 2. Send Button (Proper send button replacing duplicate mic)
+                            val canSend = hasText || attachments.isNotEmpty()
+                            val sendBtnBg = when {
+                                isStreaming && !canSend -> if (isDark) Color.White else Color(0xFF1A1A1A)
+                                canSend -> if (isDark) Color.White else Color(0xFF1A1A1A)
+                                else -> if (isDark) Color(0xFF3A3A3C) else Color(0xFFF2F2F7)
+                            }
+                            val sendIconTint = when {
+                                isStreaming && !canSend -> if (isDark) Color.Black else Color.White
+                                canSend -> if (isDark) Color.Black else Color.White
+                                else -> Color(0xFFA0A0A8)
+                            }
+
                             Surface(
                                 onClick = {
-                                    val trimmed = textFieldState.text.toString().trim()
+                                    if (isStreaming && !canSend) {
+                                        onStopStreaming()
+                                    } else if (canSend) {
+                                        val trimmed = textFieldState.text.toString().trim()
                                         if (!isAuth) {
                                             Toast.makeText(context, "Please sign in first to send messages.", Toast.LENGTH_SHORT).show()
                                             return@Surface
@@ -1255,62 +1187,17 @@ fun ChatInputBar(
                                         }
                                         onSendMessage(trimmed)
                                         textFieldState.clearText()
-                                },
-                                shape = CircleShape,
-                                color = sendBtnColor,
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowUpward,
-                                        contentDescription = "Send",
-                                        tint = if (isAuth && isOnline) (if (isBackgroundActive) com.example.gemini.theme.AppColors.onBackground else Color.White) else com.example.gemini.theme.AppColors.textSecondary,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-                            }
-                        } else if (!voiceEnabled) {
-                            // no voice input for this agent: an inactive Send until something is typed
-                            Surface(
-                                onClick = {},
-                                enabled = false,
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowUpward,
-                                        contentDescription = "Send",
-                                        tint = com.example.gemini.theme.AppColors.textSecondary,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-                            }
-                        } else {
-                            // Claude-style Microphone Voice Recorder Button
-                            val voiceBgColor = com.example.gemini.theme.AppColors.onBackground
-                            val voiceIconColor = com.example.gemini.theme.AppColors.background
-
-                            Surface(
-                                onClick = {
-                                    if (voiceNotesAsText) {
-                                        startAutoTranscribe()
-                                    } else {
-                                        recordMode = AudioRecordMode.VOICE_NOTE
-                                        triggerMicClick()
                                     }
                                 },
                                 shape = CircleShape,
-                                color = voiceBgColor,
-                                shadowElevation = 1.dp,
-                                modifier = Modifier.size(36.dp)
+                                color = sendBtnBg,
+                                modifier = Modifier.size(42.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
-                                        imageVector = Icons.Rounded.Mic,
-                                        contentDescription = if (voiceNotesAsText) "Record and transcribe" else "Record voice note",
-                                        tint = voiceIconColor,
+                                        imageVector = if (isStreaming && !canSend) Icons.Default.Stop else Icons.Default.ArrowUpward,
+                                        contentDescription = if (isStreaming && !canSend) "Stop" else "Send message",
+                                        tint = sendIconTint,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }

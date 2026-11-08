@@ -1284,62 +1284,35 @@ fun ChatScreen(
         Scaffold(
             snackbarHost = {},
             topBar = {
-                // The chat's title on the left, the agents' status dot with the project on the right. A thin line shows
-                // under the bar only once messages scroll beneath it.
-                val scrolledUnder by remember(listState) { derivedStateOf { listState.canScrollBackward } }
-                val topBarLineAlpha by androidx.compose.animation.core.animateFloatAsState(
-                    targetValue = if (scrolledUnder && messages.isNotEmpty()) 1f else 0f,
-                    animationSpec = tween(180),
-                    label = "top_bar_line"
-                )
-                val topBarLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                TopAppBar(
-                    // shorter than Material's 64dp: one line of title and the small project pill need less
-                    expandedHeight = 52.dp,
-                    modifier = Modifier.drawWithContent {
-                        drawContent()
-                        if (topBarLineAlpha > 0f) {
-                            drawLine(
-                                color = topBarLineColor.copy(alpha = topBarLineColor.alpha * topBarLineAlpha),
-                                start = androidx.compose.ui.geometry.Offset(0f, size.height - 0.5f),
-                                end = androidx.compose.ui.geometry.Offset(size.width, size.height - 0.5f),
-                                strokeWidth = 1f
-                            )
-                        }
-                    },
+                CenterAlignedTopAppBar(
                     title = {
                         val statusDotColor = when {
                             isLocalRunning -> Color(0xFF10B981)
                             isLocalStarting -> Color(0xFFF59E0B)
                             else -> Color(0xFFEF4444)
                         }
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showLocalServerOutputDialog = true }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
+                            Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { showLocalServerOutputDialog = true }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(statusDotColor)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "AURA AI",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.5.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(statusDotColor)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "AURA AI",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     },
                     navigationIcon = {
@@ -1348,7 +1321,8 @@ fun ChatScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Back",
-                                    tint = MaterialTheme.colorScheme.onSurface
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(26.dp)
                                 )
                             }
                         } else {
@@ -1356,7 +1330,8 @@ fun ChatScreen(
                                 Icon(
                                     imageVector = Icons.Default.Menu,
                                     contentDescription = "Open Drawer",
-                                    tint = MaterialTheme.colorScheme.onSurface
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(28.dp)
                                 )
                             }
                         }
@@ -1383,14 +1358,18 @@ fun ChatScreen(
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Chat,
+                                imageVector = Icons.Outlined.ChatBubbleOutline,
                                 contentDescription = "New Chat",
-                                tint = MaterialTheme.colorScheme.onSurface
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(26.dp)
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                        actionIconContentColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
             },
@@ -1543,33 +1522,20 @@ fun ChatScreen(
                         BoxWithConstraints(
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            val minHeight = maxHeight
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .verticalScroll(emptyScrollState)
-                                    .heightIn(min = minHeight)
-                                    .padding(horizontal = 24.dp, vertical = 24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                if (isFreshNewChat) {
-                                    com.example.gemini.ui.components.AgentPicker(
-                                        selected = currentConv?.agent ?: newChatAgent,
-                                        onSelect = { viewModel.setNewChatAgent(it) },
-                                        modifier = Modifier.padding(bottom = 20.dp),
-                                        agents = enabledAgents,
-                                        statusColors = agentEntries.associate { it.agent to it.color }
-                                    )
-                                }
+                            val availableHeight = maxHeight
+                            val isConstrained = availableHeight < 320.dp
+                            val isVeryConstrained = availableHeight < 190.dp
 
-                                if (!isNetworkConnected) {
-                                    com.example.gemini.ui.components.NewChatOfflinePromptCard(
-                                        modifier = Modifier.padding(bottom = 20.dp)
-                                    )
-                                }
-
-                                if (isClaudeChat && claudeChatState != com.example.gemini.data.agent.claude.ClaudeStatus.READY) {
+                            if (isClaudeChat && claudeChatState != com.example.gemini.data.agent.claude.ClaudeStatus.READY) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .verticalScroll(emptyScrollState)
+                                        .heightIn(min = availableHeight)
+                                        .padding(horizontal = 24.dp, vertical = 24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
                                     com.example.gemini.ui.claude.ClaudeStatusPrompt(
                                         state = claudeChatState,
                                         error = claudeStatusError,
@@ -1580,7 +1546,17 @@ fun ChatScreen(
                                         onServerLogs = { showLocalServerOutputDialog = true },
                                         serverStarting = serverRestarting
                                     )
-                                } else if (isOpenCodeChat && openCodeState != com.example.gemini.data.agent.opencode.OpenCodeState.READY) {
+                                }
+                            } else if (isOpenCodeChat && openCodeState != com.example.gemini.data.agent.opencode.OpenCodeState.READY) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .verticalScroll(emptyScrollState)
+                                        .heightIn(min = availableHeight)
+                                        .padding(horizontal = 24.dp, vertical = 24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
                                     com.example.gemini.ui.agents.AgentSetupPrompt(
                                         agent = com.example.gemini.domain.model.AgentKind.OPENCODE,
                                         title = when (openCodeState) {
@@ -1597,36 +1573,70 @@ fun ChatScreen(
                                         secondaryLabel = if (openCodeState == com.example.gemini.data.agent.opencode.OpenCodeState.CHECKING) null else "Server logs",
                                         onSecondary = { showLocalServerOutputDialog = true }
                                     )
-                                } else when (if (isClaudeChat || isOpenCodeChat) null else systemConnectionState.status) {
-                                    com.example.gemini.data.remote.SystemStatus.CHECKING_AUTH -> {
-                                        com.example.gemini.ui.components.NewChatCheckingAuthPromptCard()
-                                    }
-                                    com.example.gemini.data.remote.SystemStatus.UNAUTHENTICATED -> {
-                                        if (isNetworkConnected) {
-                                            com.example.gemini.ui.components.NewChatSignInPromptCard(
-                                                onSignInClick = { viewModel.loginToAgyHub(force = true) }
-                                            )
-                                        }
-                                    }
-                                    else -> {
+                                }
+                            } else if (!isClaudeChat && !isOpenCodeChat && systemConnectionState.status == com.example.gemini.data.remote.SystemStatus.CHECKING_AUTH) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .verticalScroll(emptyScrollState)
+                                        .heightIn(min = availableHeight)
+                                        .padding(horizontal = 24.dp, vertical = 24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    com.example.gemini.ui.components.NewChatCheckingAuthPromptCard()
+                                }
+                            } else if (!isClaudeChat && !isOpenCodeChat && systemConnectionState.status == com.example.gemini.data.remote.SystemStatus.UNAUTHENTICATED && isNetworkConnected) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .verticalScroll(emptyScrollState)
+                                        .heightIn(min = availableHeight)
+                                        .padding(horizontal = 24.dp, vertical = 24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    com.example.gemini.ui.components.NewChatSignInPromptCard(
+                                        onSignInClick = { viewModel.loginToAgyHub(force = true) }
+                                    )
+                                }
+                            } else {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 28.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    if (!isVeryConstrained) {
+                                        Spacer(modifier = Modifier.weight(if (isConstrained) 0.6f else 1.15f))
+
                                         Text(
                                             text = "Hi Sir, what's on your mind?",
-                                            fontSize = 26.sp,
+                                            fontSize = if (isConstrained) 22.sp else 26.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onSurface,
-                                            textAlign = TextAlign.Center
+                                            textAlign = TextAlign.Center,
+                                            lineHeight = if (isConstrained) 28.sp else 34.sp
                                         )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = "Ask a question, brainstorm ideas, or start coding",
-                                            fontSize = 14.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            textAlign = TextAlign.Center
-                                        )
+
+                                        if (!isConstrained) {
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            Text(
+                                                text = "Ask a question, brainstorm ideas, or start\ncoding",
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Normal,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                                textAlign = TextAlign.Center,
+                                                lineHeight = 22.sp
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.weight(if (isConstrained) 0.6f else 1.85f))
                                     }
                                 }
                             }
                         }
+                    }
                     } else {
                         val currentDensity = androidx.compose.ui.platform.LocalDensity.current
                         val customDensity = remember(currentDensity, chatFontScale) {
@@ -2206,7 +2216,7 @@ fun ChatScreen(
                         onModeSelected = { mode ->
                             if (mode == "voice") homeMode = "voice"
                         },
-                        modifier = Modifier.width(180.dp)
+                        modifier = Modifier.width(165.dp)
                     )
                 }
 
@@ -2866,6 +2876,8 @@ fun ChatScreen(
         AttachmentSelectorBottomSheet(
             onPickImage = { photoPickerLauncher.launch("image/*") },
             onPickFile = { filePickerLauncher.launch("*/*") },
+            onSelectModel = { showModelSelector = true },
+            currentModelName = currentModel.displayName,
             onDismiss = { showAttachmentSelector = false }
         )
     }

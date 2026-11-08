@@ -21,11 +21,15 @@ import androidx.compose.ui.unit.sp
 import com.example.gemini.theme.ClaudeTerracotta
 import com.example.gemini.theme.GeminiBlue
 
+import androidx.compose.material.icons.outlined.AutoAwesome
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttachmentSelectorBottomSheet(
     onPickImage: () -> Unit,
     onPickFile: () -> Unit,
+    onSelectModel: (() -> Unit)? = null,
+    currentModelName: String? = null,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(
@@ -73,6 +77,21 @@ fun AttachmentSelectorBottomSheet(
                     onPickFile()
                 }
             )
+
+            if (onSelectModel != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                AttachmentOptionRow(
+                    icon = Icons.Outlined.AutoAwesome,
+                    iconColor = Color(0xFFD97706),
+                    title = if (!currentModelName.isNullOrBlank()) "Model: $currentModelName" else "Switch AI Model",
+                    subtitle = "Change active LLM model or thinking preference",
+                    onClick = {
+                        onDismiss()
+                        onSelectModel()
+                    }
+                )
+            }
         }
     }
 }
