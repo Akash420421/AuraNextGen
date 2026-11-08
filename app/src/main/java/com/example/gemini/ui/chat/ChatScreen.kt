@@ -506,6 +506,7 @@ fun ChatScreen(
         }
     }
     var activeConversationKey by remember { mutableStateOf(currentConv?.id ?: "new") }
+    var homeMode by rememberSaveable { mutableStateOf("chat") }
     // The keyboard edits this buffer directly (like a native EditText). Holding the text as a TextFieldValue here made
     // every key press round-trip through this screen; with long text that lagged and some keyboards (e.g. Samsung)
     // lost track of the word being typed, merging words ("I a" -> "Ia").
@@ -1307,246 +1308,17 @@ fun ChatScreen(
                         }
                     },
                     title = {
-                        val displayedChatTitle = remember(currentConv?.title, conversations, currentConv?.id) {
-                            val fromList = conversations.firstOrNull { it.id == currentConv?.id }
-                            val listTitle = fromList?.title?.takeIf {
-                                it.isNotBlank() && it != "New Chat" && it != "Conversation"
-                            }
-                            val activeTitle = currentConv?.title?.takeIf {
-                                it.isNotBlank() && it != "New Chat" && it != "Conversation"
-                            }
-                            listTitle ?: activeTitle ?: currentConv?.title?.takeIf { it.isNotBlank() } ?: "Antigravity Chat"
-                        }
-
-                        val isChatStarted = messages.isNotEmpty()
-                        val displayedProjectName = remember(currentConv?.workspaceUri, isChatStarted) {
-                            val convUri = currentConv?.workspaceUri
-                            if (!convUri.isNullOrBlank()) {
-                                val clean = convUri.removePrefix("file://").trimEnd('/')
-                                File(clean).name.ifBlank { "Workspace" }
-                            } else {
-                                if (isChatStarted) "Outside" else "Select Project"
-                            }
-                        }
-                        val showStatusDot = isLocalToolsInstalled || AuthPreferences.currentRemoteMode ||
-                            com.example.gemini.data.local.LocalEnvironmentManager.isInstalled(context) ||
-                            systemConnectionState.status != com.example.gemini.data.remote.SystemStatus.OFFLINE
-                        var statusMenuOpen by remember { mutableStateOf(false) }
-
-                        // title on the left; "◐ project" and the new-chat button on the right. Title and project shorten
-                        // with "…" and keep a gap between them and from the screen edge, so nothing runs into anything.
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(end = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            // the real title fades in when the chat gets one (instead of jumping from "New Chat")
-                            Crossfade(
-                                targetState = displayedChatTitle,
-                                animationSpec = tween(250),
-                                label = "chat_title",
-                                modifier = Modifier.weight(1f)
-                            ) { chatTitle ->
-                                Text(
-                                    text = chatTitle,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Box {
-                                // before the chat starts a tap picks the project; after, it shows the agents' status
-                                Row(
-                                    modifier = Modifier
-                                        .widthIn(max = 150.dp)
-                                        .clip(RoundedCornerShape(50))
-                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
-                                        .clickable {
-                                            if (!isChatStarted) showProjectPickerDialog = true
-                                            else if (showStatusDot) statusMenuOpen = true
-                                        }
-                                        .padding(start = if (showStatusDot) 4.dp else 10.dp, end = if (isChatStarted) 10.dp else 4.dp, top = 3.dp, bottom = 3.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    if (showStatusDot) {
-                                        // upper half Antigravity, lower half Claude Code (one solid dot when they agree);
-                                        // the dot itself always opens the agents' status, also before the chat starts
-                                        // one slice per enabled agent (Antigravity, Claude Code, OpenCode)
-                                        Box(
-                                            modifier = Modifier
-                                                .size(20.dp)
-                                                .clip(CircleShape)
-                                                .clickable { statusMenuOpen = true },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            com.example.gemini.ui.agents.AgentStatusDot(
-                                                colors = agentEntries.map { it.color },
-                                                size = if (agentEntries.size > 2) 10.dp else 8.dp,
-                                                pulsing = agentEntries.any { it.pending }
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                    }
-                                    if (isAnyGenerationOrTaskActive) {
-                                        // the screen is kept on (work is running): a sun, tap it to see why
-                                        Box(
-                                            modifier = Modifier
-                                                .size(20.dp)
-                                                .clip(CircleShape)
-                                                .clickable { screenAwakeInfoOpen = true },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.LightMode,
-                                                contentDescription = "Screen stays on",
-                                                tint = com.example.gemini.theme.AppColors.warning,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                            DropdownMenu(
-                                                expanded = screenAwakeInfoOpen,
-                                                onDismissRequest = { screenAwakeInfoOpen = false }
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier
-                                                        .widthIn(min = 220.dp, max = 300.dp)
-                                                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                                                ) {
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Icon(
-                                                            imageVector = Icons.Rounded.LightMode,
-                                                            contentDescription = null,
-                                                            tint = com.example.gemini.theme.AppColors.warning,
-                                                            modifier = Modifier.size(16.dp)
-                                                        )
-                                                        Spacer(modifier = Modifier.width(6.dp))
-                                                        Text(
-                                                            text = "Screen stays on",
-                                                            fontSize = 14.sp,
-                                                            fontWeight = FontWeight.SemiBold,
-                                                            color = MaterialTheme.colorScheme.onSurface
-                                                        )
-                                                    }
-                                                    Spacer(modifier = Modifier.height(6.dp))
-                                                    Text(
-                                                        text = "The screen won't turn off by itself while:",
-                                                        fontSize = 12.5.sp,
-                                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                                    )
-                                                    screenAwakeReasons.forEach { reason ->
-                                                        Text(
-                                                            text = "• $reason",
-                                                            fontSize = 12.5.sp,
-                                                            color = MaterialTheme.colorScheme.onSurface,
-                                                            modifier = Modifier.padding(top = 4.dp)
-                                                        )
-                                                    }
-                                                    Spacer(modifier = Modifier.height(6.dp))
-                                                    Text(
-                                                        text = "It turns off normally again once this is done.",
-                                                        fontSize = 12.sp,
-                                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                    }
-                                    Text(
-                                        text = displayedProjectName,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isChatStarted) 0.65f else 0.8f),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false)
-                                    )
-                                    if (!isChatStarted) {
-                                        Icon(
-                                            imageVector = Icons.Default.ArrowDropDown,
-                                            contentDescription = "Choose project",
-                                            modifier = Modifier.size(16.dp),
-                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                        )
-                                    }
-                                }
-                                com.example.gemini.ui.agents.AgentStatusMenu(
-                                    entries = agentEntries,
-                                    expanded = statusMenuOpen,
-                                    onDismiss = { statusMenuOpen = false },
-                                    onOpenServerLogs = { showLocalServerOutputDialog = true }
-                                )
-                            }
-                            // shortcut icons chosen in Settings > Appearance > Chat Header Icons (default: just New chat)
-                            val headerShortcuts = chatHeaderItems.filter { id ->
-                                when (id) {
-                                    "newchat", "ide", "terminal", "browser" -> true
-                                    "notes" -> onNavigateToNotes != null
-                                    "files" -> onNavigateToFiles != null
-                                    else -> false
-                                }
-                            }
-                            if (headerShortcuts.isNotEmpty()) Spacer(modifier = Modifier.width(4.dp))
-                            headerShortcuts.forEach { id ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .clip(CircleShape)
-                                        .clickable {
-                                            when (id) {
-                                                "newchat" -> {
-                                                    // same as the sidebar's New chat
-                                                    val currentId = currentConv?.id
-                                                    if (!currentId.isNullOrBlank() && feedItems.isNotEmpty()) {
-                                                        ConversationScrollCache.save(currentId, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, isAtBottom)
-                                                    }
-                                                    conversationBackStack.clear()
-                                                    viewModel.startNewChat()
-                                                }
-                                                "ide" -> onNavigateToIde()
-                                                "browser" -> onNavigateToBrowser()
-                                                "notes" -> onNavigateToNotes?.invoke()
-                                                "files" -> onNavigateToFiles?.invoke()
-                                                "terminal" -> {
-                                                    // like the floating switcher: needs SSH, server mode or the local Linux tools
-                                                    val ready = useSshTerminal || AuthPreferences.currentRemoteMode ||
-                                                        (isLocalToolsInstalled && isLocalToolsEnabled)
-                                                    when {
-                                                        ready -> onNavigateToTerminal()
-                                                        isLocalToolsInstalled -> {
-                                                            viewModel.setLocalToolsEnabled(true)
-                                                            onNavigateToTerminal()
-                                                        }
-                                                        else -> showLocalToolsInstallDialog = true
-                                                    }
-                                                }
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = when (id) {
-                                            "ide" -> Icons.Outlined.Code
-                                            "terminal" -> Icons.Outlined.Terminal
-                                            "browser" -> Icons.Outlined.Language
-                                            "notes" -> Icons.Outlined.EditNote
-                                            "files" -> Icons.Outlined.FolderOpen
-                                            else -> Icons.Outlined.AddComment
-                                        },
-                                        contentDescription = when (id) {
-                                            "ide" -> "Open IDE"
-                                            "terminal" -> "Open Terminal"
-                                            "browser" -> "Open Browser"
-                                            "notes" -> "Open Notes"
-                                            "files" -> "Open Files"
-                                            else -> "New chat"
-                                        },
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-                            }
+                            Text(
+                                text = "AURA AI",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     },
                     navigationIcon = {
@@ -1569,7 +1341,6 @@ fun ChatScreen(
                         }
                     },
                     actions = {
-                        // Browser, Terminal and the IDE are in the floating switcher (always on)
                         if (isInFloatingWindow) {
                             IconButton(onClick = onMinimizeWindow) {
                                 Icon(
@@ -1578,22 +1349,23 @@ fun ChatScreen(
                                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
                                 )
                             }
-                            IconButton(onClick = onOpenFullScreen) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                                    contentDescription = "Open Full Screen",
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
-                                )
-                            }
                         }
-                        if (isDevModeEnabled) {
-                            IconButton(onClick = { showChatTelemetryDialog = true }) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Analytics,
-                                    contentDescription = "Chat Telemetry & Tokens",
-                                    tint = ClaudeTerracotta
-                                )
+                        IconButton(
+                            onClick = {
+                                val currentId = currentConv?.id
+                                if (!currentId.isNullOrBlank() && feedItems.isNotEmpty()) {
+                                    ConversationScrollCache.save(currentId, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, isAtBottom)
+                                }
+                                conversationBackStack.clear()
+                                viewModel.startNewChat()
+                                homeMode = "chat"
                             }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Chat,
+                                contentDescription = "New Chat",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -1604,8 +1376,14 @@ fun ChatScreen(
             containerColor = MaterialTheme.colorScheme.background,
             contentWindowInsets = WindowInsets.statusBars
         ) { paddingValues ->
-            // Synchronized container that moves seamlessly with the IME keyboard
-            Column(
+            if (homeMode == "voice") {
+                AuraVoiceScreen(
+                    onSwitchToChat = { homeMode = "chat" },
+                    modifier = Modifier.padding(paddingValues)
+                )
+            } else {
+                // Synchronized container that moves seamlessly with the IME keyboard
+                Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
@@ -1808,8 +1586,8 @@ fun ChatScreen(
                                     }
                                     else -> {
                                         Text(
-                                            text = "How can I help you today?",
-                                            fontSize = 22.sp,
+                                            text = "Hi Sir, what's on your mind?",
+                                            fontSize = 26.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             textAlign = TextAlign.Center
@@ -1818,7 +1596,7 @@ fun ChatScreen(
                                         Text(
                                             text = "Ask a question, brainstorm ideas, or start coding",
                                             fontSize = 14.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                             textAlign = TextAlign.Center
                                         )
                                     }
@@ -2394,6 +2172,20 @@ fun ChatScreen(
                     com.example.gemini.ui.opencode.OpenCodeControlsStrip(openCodeBackend)
                 }
 
+                // Segmented Toggle: [ Chat | Voice ]
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    com.example.gemini.ui.components.AuraModeToggle(
+                        currentMode = "chat",
+                        onModeSelected = { mode ->
+                            if (mode == "voice") homeMode = "voice"
+                        },
+                        modifier = Modifier.width(180.dp)
+                    )
+                }
+
                 // Chat Input Bar with Bottom Model & Thinking Selector Pills (Claude Android Style)
                 ChatInputBar(
                     isOnline = if (isOpenCodeChat) !openCodeState.isBlocking else if (isClaudeChat) !claudeState.isBlocking else systemConnectionState.canSend,
@@ -2464,6 +2256,7 @@ fun ChatScreen(
                     onSendQueuedNow = { viewModel.sendQueuedNow(it) },
                     onDeleteQueued = { viewModel.deleteQueued(it) }
                 )
+            }
             }
         }
     }

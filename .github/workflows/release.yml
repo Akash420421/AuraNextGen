@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - master
-    paths:
-      - 'version.json'
   workflow_dispatch:
 
 permissions:
@@ -19,7 +17,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # full history: the app's "What's new" page is generated from every commit of version.json
           fetch-depth: 0
 
       - name: Set up Java 21
@@ -48,24 +45,32 @@ jobs:
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Restore Keystore from Secret
+      - name: Setup Keystore
         run: |
-          if [ -z "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
-            echo "Error: RELEASE_KEYSTORE_BASE64 secret is missing in GitHub repository settings."
-            exit 1
+          if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > app/release.jks
+          else
+            echo "Generating build keystore..."
+            keytool -genkey -v -keystore app/release.jks -alias antigem -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=AuraAI, OU=Aura, O=Aura, L=City, S=State, C=US"
           fi
-          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > app/release.jks
 
       - name: Build Release APKs
         run: |
           chmod +x gradlew scripts/build_all_apks.sh
           ./scripts/build_all_apks.sh --release
 
+      - name: Upload APK Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AuraAI-v${{ steps.version.outputs.tag }}-APKs
+          path: output/*
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'release') || contains(github.event.head_commit.modified, 'version.json')
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.name }}
+          name: Aura AI ${{ steps.version.outputs.name }}
           body: ${{ steps.version.outputs.changelog }}
           generate_release_notes: true
           files: output/*

@@ -898,7 +898,7 @@ fun ChatInputBar(
                         state = textFieldState,
                         placeholder = {
                             Text(
-                                text = "Reply to ${selectedModel.displayName.split(" ").firstOrNull() ?: "Gemini"}...",
+                                text = "Ask anything",
                                 fontSize = 15.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f)
                             )
