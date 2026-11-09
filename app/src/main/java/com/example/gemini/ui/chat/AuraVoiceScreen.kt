@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.sp
 import com.example.gemini.data.jarvis.JarvisController
 import com.example.gemini.data.jarvis.JarvisController.Phase
 import com.example.gemini.data.jarvis.JarvisPreferences
-import com.example.gemini.ui.components.AuraHeaderIcons
 import com.example.gemini.ui.components.AuraModeToggle
 import com.example.gemini.ui.components.AuraOrbView
 import com.example.gemini.ui.components.NewChatIcon

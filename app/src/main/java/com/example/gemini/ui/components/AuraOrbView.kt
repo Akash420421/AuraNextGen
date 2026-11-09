@@ -51,7 +51,6 @@ fun AuraOrbView(
             factory = { ctx ->
                 WebView(ctx).apply {
                     setBackgroundColor(Color.TRANSPARENT)
-                    isOpaque = false
                     setLayerType(WebView.LAYER_TYPE_HARDWARE, null)
                     settings.apply {
                         javaScriptEnabled = true

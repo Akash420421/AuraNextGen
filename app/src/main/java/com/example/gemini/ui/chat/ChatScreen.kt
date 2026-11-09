@@ -1624,6 +1624,7 @@ fun ChatScreen(
                         ) {
                                 // iOS-style vertical bounce at the top and bottom (also for a short chat that cannot scroll);
                                 // only this list: code blocks and other sideways scrollers keep Android's own edge effect
+                                val chatBounce = com.example.gemini.ui.components.rememberBouncyLazyScroll(listState)
                                 val statusBarsTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
                                 val navBarsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
                                 val imeBottom = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
