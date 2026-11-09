@@ -1,13 +1,15 @@
 {
-  "version_code": 126,
-  "version_name": "1.2.3",
+  "version_code": 127,
+  "version_name": "1.2.4",
   "min_supported_version_code": 1,
   "changelog": [
-    "Redesigned main AURA AI Home/Chat interface to clean, minimal light theme",
-    "Centered AURA AI title in borderless header with matching icons",
-    "Pill-shaped compact Chat / Voice segmented switcher",
-    "Clean single-row rounded composer with one voice record mic and dedicated Send button",
-    "Smooth responsive keyboard handling with upper-middle greeting and subtitle"
+    "Clean minimal light UI/UX redesign across Chat and Voice",
+    "Hidden token usage telemetry pills and technical bash execution logs",
+    "Collapsible reasoning accordion defaulted to collapsed",
+    "Centered title header with modern outline icons and zero status dot",
+    "Smooth horizontal swipe gesture between Chat and Voice screens",
+    "Spherical 3D particle orb with finger drag rotation",
+    "Clean top drawer navigation and minimal profile avatar"
   ],
   "is_critical": false
 }
