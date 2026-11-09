@@ -949,6 +949,10 @@ fun ContextSummaryCheckpointBanner(
     }
 }
 
+private fun formatUserDisplayContent(content: String): String {
+    return content.trim()
+}
+
 @Composable
 private fun AssistantGeneratedImageCard(
     attachment: com.example.gemini.domain.model.ChatAttachment,
