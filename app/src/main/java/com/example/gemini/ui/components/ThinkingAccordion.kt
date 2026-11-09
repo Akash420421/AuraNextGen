@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,15 +32,8 @@ fun ThinkingAccordion(
     isStreaming: Boolean,
     modifier: Modifier = Modifier
 ) {
-    var isExpanded by remember { mutableStateOf(isStreaming) }
+    var isExpanded by remember { mutableStateOf(false) }
     var hasUserManuallyToggled by remember { mutableStateOf(false) }
-
-    // Auto-expand while actively streaming thoughts if user hasn't manually toggled
-    LaunchedEffect(isStreaming) {
-        if (isStreaming && !hasUserManuallyToggled) {
-            isExpanded = true
-        }
-    }
 
     val rotation by animateFloatAsState(
         targetValue = if (isExpanded) 90f else 0f,
@@ -80,15 +72,6 @@ fun ThinkingAccordion(
                 modifier = Modifier
                     .size(15.dp)
                     .rotate(rotation)
-            )
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            Icon(
-                imageVector = Icons.Outlined.Psychology,
-                contentDescription = "Thinking",
-                tint = ClaudeTerracotta.copy(alpha = 0.85f),
-                modifier = Modifier.size(15.dp)
             )
 
             Spacer(modifier = Modifier.width(6.dp))
@@ -167,17 +150,6 @@ fun ThinkingAccordion(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                         modifier = Modifier.fillMaxWidth()
                     )
-
-                    if (!isStreaming && durationMs != null && durationMs > 0) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "⏱️ Thought for ${formatDuration(durationMs)}",
-                            fontSize = 11.5.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Medium,
-                            color = ClaudeTerracotta.copy(alpha = 0.9f)
-                        )
-                    }
                 }
             }
         }

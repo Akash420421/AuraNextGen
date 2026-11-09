@@ -96,8 +96,7 @@ fun AuraVoiceScreen(
                 currentMode = "voice",
                 onModeSelected = { mode ->
                     if (mode == "chat") onSwitchToChat()
-                },
-                modifier = Modifier.width(165.dp)
+                }
             )
 
             Spacer(modifier = Modifier.height(28.dp))

@@ -138,30 +138,31 @@ fun AccountsButton(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)),
         modifier = modifier
     ) {
-        Row(Modifier.padding(start = 5.dp, end = 10.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.padding(
+                start = 5.dp,
+                end = if (needsSignIn) 10.dp else 5.dp,
+                top = 4.dp,
+                bottom = 4.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Row(horizontalArrangement = Arrangement.spacedBy((-7).dp)) {
                 agy?.let { AccountAvatar(AgentKind.AGY, it, agyAuth.displayName.firstOrNull(), agyAuth.profilePictureUrl?.takeIf { u -> u.isNotBlank() }) }
                 claude?.let { AccountAvatar(AgentKind.CLAUDE, it, claudeStatus?.auth?.email?.firstOrNull()) }
                 openCode?.let { AccountAvatar(AgentKind.OPENCODE, it, null) }
             }
-            Spacer(Modifier.width(7.dp))
-            val text = when {
-                needsSignIn -> "Sign in"
-                single?.agent == AgentKind.AGY && single.isReady -> agyAuth.displayName.ifBlank { "Account" }
-                single?.agent == AgentKind.CLAUDE && single.isReady -> claudeStatus?.auth?.email?.substringBefore('@') ?: "Account"
-                single?.agent == AgentKind.OPENCODE && single.isReady -> "OpenCode"
-                single != null -> single.label
-                else -> "Accounts"
+            if (needsSignIn) {
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    "Sign in",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = (entries.first { it.isSignedOut }.agent.accent()),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Text(
-                text,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (needsSignIn) (entries.first { it.isSignedOut }.agent.accent()) else MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 104.dp)
-            )
         }
     }
 }

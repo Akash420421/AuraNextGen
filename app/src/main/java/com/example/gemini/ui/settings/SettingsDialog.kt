@@ -714,6 +714,8 @@ private fun MainSettingsMenu(
     val openCodeOn = com.example.gemini.domain.model.AgentKind.OPENCODE in enabledAgents
     val openCodeState = openCode?.state?.collectAsState()?.value
     val c = com.example.gemini.theme.AppColors
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
     fun row(section: SettingsSection, icon: ImageVector, tint: Color, value: String? = null, valueColor: Color? = null) =
         SettingsRowItem(icon, tint, section.title, value, valueColor) { onNavigate(section) }
 
@@ -796,10 +798,95 @@ private fun MainSettingsMenu(
                 row(SettingsSection.DATA_PROTECTION, Icons.Outlined.Security, c.success)
             ),
             listOf(
-                row(SettingsSection.ABOUT, Icons.Outlined.Info, c.accentAlt, "v${BuildConfig.VERSION_NAME}")
+                row(SettingsSection.ABOUT, Icons.Outlined.Info, c.accentAlt, "v${BuildConfig.VERSION_NAME}"),
+                SettingsRowItem(androidx.compose.material.icons.Icons.Default.PowerSettingsNew, c.danger, "Exit AntiGem", null) {
+                    showExitConfirmDialog = true
+                }
             )
         )
     )
+
+    if (showExitConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirmDialog = false },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.PowerSettingsNew,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    text = "Exit AntiGem?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                Text(
+                    text = "Do you want to exit the app? This will stop all active background services, servers, and terminals.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showExitConfirmDialog = false
+                        try {
+                            com.example.gemini.data.service.TermuxService.stop(context)
+                        } catch (e: Exception) {
+                            try {
+                                com.example.gemini.data.local.LocalServerManager.forceKillAll()
+                            } catch (_: Exception) {}
+                            try {
+                                com.example.gemini.data.local.LocalTerminalManager.closeAll()
+                            } catch (_: Exception) {}
+                            (context as? android.app.Activity)?.finishAffinity()
+                            android.os.Process.killProcess(android.os.Process.myPid())
+                            kotlin.system.exitProcess(0)
+                        }
+                        try {
+                            (context as? android.app.Activity)?.finishAffinity()
+                        } catch (e: Exception) {}
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.PowerSettingsNew,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Exit App", fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showExitConfirmDialog = false },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Cancel", fontSize = 13.5.sp)
+                }
+            }
+        )
+    }
 }
 
 /** Antigravity's own page: its MCP servers, skills & plugins, and commands & permissions. */

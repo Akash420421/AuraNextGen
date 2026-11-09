@@ -26,6 +26,10 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.AddComment
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.automirrored.outlined.Login
 import androidx.compose.material.icons.filled.Add
@@ -105,6 +109,11 @@ fun ChatHistoryDrawer(
     onTerminateInstance: (String) -> Unit = {},
     onSearchQueryChange: (String) -> Unit = {},
     onOpenSettings: () -> Unit,
+    onNavigateHome: () -> Unit = onNewChat,
+    onNavigateVoice: () -> Unit = {},
+    onOpenPermissions: () -> Unit = {},
+    onNavigateProjects: () -> Unit = { onToggleGroupByWorkspace(!groupByWorkspace) },
+    onNavigateImages: () -> Unit = {},
     /** Opens the floating theme picker (a palette button next to Settings; hidden when null). */
     onOpenThemes: (() -> Unit)? = null,
     onLogin: () -> Unit = {},
@@ -594,7 +603,7 @@ fun ChatHistoryDrawer(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // ---------------- header: brand on the left, power + new chat on the right ----------------
+            // ---------------- header: brand on the left, search + folder on the right ----------------
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -602,7 +611,7 @@ fun ChatHistoryDrawer(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "AntiGem",
+                    text = "AURA AI",
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.3).sp,
@@ -640,23 +649,64 @@ fun ChatHistoryDrawer(
                     if (groupByWorkspace) "Disable Workspace Grouping" else "Group by Workspace",
                     groupByWorkspace
                 ) { onToggleGroupByWorkspace(!groupByWorkspace) }
-
-                // Exit app: quiet until pressed (it asks first)
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .clickable { showExitConfirmDialog = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PowerSettingsNew,
-                        contentDescription = "Exit App",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
             }
+
+            // ---------------- Top Navigation Menu Items ----------------
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 4.dp)
+            ) {
+                @Composable
+                fun DrawerNavItem(
+                    icon: androidx.compose.ui.graphics.vector.ImageVector,
+                    label: String,
+                    onClick: () -> Unit
+                ) {
+                    Surface(
+                        onClick = onClick,
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.Transparent,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = label,
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Text(
+                                text = label,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f)
+                            )
+                        }
+                    }
+                }
+
+                DrawerNavItem(Icons.Outlined.Home, "Home") { onNavigateHome() }
+                DrawerNavItem(Icons.Outlined.Mic, "Voice Mode") { onNavigateVoice() }
+                DrawerNavItem(Icons.Outlined.Security, "All Permissions") { onOpenPermissions() }
+                DrawerNavItem(Icons.Outlined.Folder, "Projects") { onNavigateProjects() }
+                DrawerNavItem(Icons.Outlined.Image, "Images") { onNavigateImages() }
+            }
+
+            HorizontalDivider(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+            )
 
             // ---------------- search field: only after tapping the header's search icon ----------------
             val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
@@ -1148,8 +1198,8 @@ fun ChatHistoryDrawer(
                     )
                 }
 
-                // Themes: a floating picker over the sidebar and chat, to try themes and see them live
-                if (onOpenThemes != null) {
+                // Themes: palette icon hidden per clean UI requirement
+                if (false && onOpenThemes != null) {
                     Surface(
                         onClick = onOpenThemes,
                         shape = RoundedCornerShape(8.dp),
@@ -1259,7 +1309,7 @@ fun ChatHistoryDrawer(
                                         }
                                     )
                                     val nameToShow = authInfo.displayName
-                                    if (nameToShow.isNotBlank()) {
+                                    if (false && nameToShow.isNotBlank()) {
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = nameToShow,

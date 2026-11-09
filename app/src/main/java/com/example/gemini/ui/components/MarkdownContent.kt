@@ -187,15 +187,23 @@ fun MarkdownBlockView(
             )
         }
         is MarkdownBlock.AgentTool -> {
-            AgentToolCallCard(
-                toolCall = block.toolCall,
-                onApprove = onApproveTool,
-                onReject = onRejectTool,
-                onTerminate = onTerminateTool,
-                onSubmitChoices = onSubmitChoices,
-                onSkipChoices = onSkipChoices,
-                modifier = modifier
-            )
+            val toolCall = block.toolCall
+            val isChoice = toolCall.toolType == com.example.gemini.domain.model.ToolType.ASK_CHOICE
+            val isPendingApproval = toolCall.status == "PENDING_APPROVAL"
+            val isImageOutput = toolCall.toolType == com.example.gemini.domain.model.ToolType.GENERATE_IMAGE ||
+                toolCall.output.startsWith("data:image/") ||
+                (toolCall.output.startsWith("file://") && toolCall.output.matches(Regex(".*\\.(png|jpe?g|webp|gif)(\\?.*)?$", RegexOption.IGNORE_CASE)))
+            if (isChoice || isPendingApproval || isImageOutput) {
+                AgentToolCallCard(
+                    toolCall = block.toolCall,
+                    onApprove = onApproveTool,
+                    onReject = onRejectTool,
+                    onTerminate = onTerminateTool,
+                    onSubmitChoices = onSubmitChoices,
+                    onSkipChoices = onSkipChoices,
+                    modifier = modifier
+                )
+            }
         }
         is MarkdownBlock.AgentError -> {
             AgentErrorCard(error = block, modifier = modifier)

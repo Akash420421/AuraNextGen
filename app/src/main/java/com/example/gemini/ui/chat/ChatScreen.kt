@@ -507,6 +507,18 @@ fun ChatScreen(
     }
     var activeConversationKey by remember { mutableStateOf(currentConv?.id ?: "new") }
     var homeMode by rememberSaveable { mutableStateOf("chat") }
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(initialPage = if (homeMode == "voice") 1 else 0) { 2 }
+    var showPermissionsDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(pagerState.currentPage) {
+        homeMode = if (pagerState.currentPage == 1) "voice" else "chat"
+    }
+    LaunchedEffect(homeMode) {
+        val target = if (homeMode == "voice") 1 else 0
+        if (pagerState.currentPage != target) {
+            pagerState.animateScrollToPage(target)
+        }
+    }
     // The keyboard edits this buffer directly (like a native EditText). Holding the text as a TextFieldValue here made
     // every key press round-trip through this screen; with long text that lagged and some keyboards (e.g. Samsung)
     // lost track of the word being typed, merging words ("I a" -> "Ia").
@@ -1033,6 +1045,7 @@ fun ChatScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             ModalNavigationDrawer(
                 drawerState = drawerState,
+                gesturesEnabled = pagerState.currentPage == 0 && conversationBackStack.isEmpty(),
         drawerContent = {
             ChatHistoryDrawer(
                 conversations = conversations,
@@ -1101,6 +1114,38 @@ fun ChatScreen(
                 },
                 onOpenSettings = {
                     showSettingsDialog = true
+                    scope.launch { drawerState.close() }
+                },
+                onNavigateHome = {
+                    val currentId = currentConv?.id
+                    if (!currentId.isNullOrBlank() && feedItems.isNotEmpty()) {
+                        ConversationScrollCache.save(currentId, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, isAtBottom)
+                    }
+                    conversationBackStack.clear()
+                    viewModel.startNewChat()
+                    homeMode = "chat"
+                    scope.launch {
+                        pagerState.animateScrollToPage(0)
+                        drawerState.close()
+                    }
+                },
+                onNavigateVoice = {
+                    homeMode = "voice"
+                    scope.launch {
+                        pagerState.animateScrollToPage(1)
+                        drawerState.close()
+                    }
+                },
+                onOpenPermissions = {
+                    showPermissionsDialog = true
+                    scope.launch { drawerState.close() }
+                },
+                onNavigateProjects = {
+                    viewModel.setGroupChatsByWorkspace(!groupChatsByWorkspace)
+                    scope.launch { drawerState.close() }
+                },
+                onNavigateImages = {
+                    showArtifactsDrawer = true
                     scope.launch { drawerState.close() }
                 },
                 // the sidebar stays open: the picker floats over it so the new look shows on the sidebar and the chat
@@ -1286,34 +1331,13 @@ fun ChatScreen(
             topBar = {
                 CenterAlignedTopAppBar(
                     title = {
-                        val statusDotColor = when {
-                            isLocalRunning -> Color(0xFF10B981)
-                            isLocalStarting -> Color(0xFFF59E0B)
-                            else -> Color(0xFFEF4444)
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { showLocalServerOutputDialog = true }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(statusDotColor)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "AURA AI",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                        Text(
+                            text = "AURA AI",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     },
                     navigationIcon = {
                         if (conversationBackStack.isNotEmpty()) {
@@ -1322,7 +1346,7 @@ fun ChatScreen(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Back",
                                     tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(26.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                         } else {
@@ -1331,7 +1355,7 @@ fun ChatScreen(
                                     imageVector = Icons.Default.Menu,
                                     contentDescription = "Open Drawer",
                                     tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(26.dp)
                                 )
                             }
                         }
@@ -1358,15 +1382,15 @@ fun ChatScreen(
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.ChatBubbleOutline,
+                                imageVector = Icons.Outlined.AddComment,
                                 contentDescription = "New Chat",
                                 tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(26.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
+                        containerColor = Color.Transparent,
                         titleContentColor = MaterialTheme.colorScheme.onSurface,
                         navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
                         actionIconContentColor = MaterialTheme.colorScheme.onSurface
@@ -1376,20 +1400,20 @@ fun ChatScreen(
             containerColor = MaterialTheme.colorScheme.background,
             contentWindowInsets = WindowInsets.statusBars
         ) { paddingValues ->
-            if (homeMode == "voice") {
-                AuraVoiceScreen(
-                    onSwitchToChat = { homeMode = "chat" },
-                    modifier = Modifier.padding(paddingValues)
-                )
-            } else {
-                // Synchronized container that moves seamlessly with the IME keyboard
-                Column(
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .navigationBarsPadding()
-                    .windowInsetsPadding(WindowInsets.imeAnimationTarget)
-            ) {
+            ) { page ->
+                if (page == 0) {
+                    // Synchronized container that moves seamlessly with the IME keyboard
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .navigationBarsPadding()
+                            .windowInsetsPadding(WindowInsets.imeAnimationTarget)
+                    ) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -1685,7 +1709,7 @@ fun ChatScreen(
                                                 }
                                             }
                                         }
-                                        is ChatFeedItem.Divider -> com.example.gemini.ui.components.WaveDivider(label = feedItem.label)
+                                        is ChatFeedItem.Divider -> Unit
                                         is ChatFeedItem.User -> {
                                             val msgIndex = messages.indexOfFirst { it.id == feedItem.message.id }
                                             val willDeleteOutput = msgIndex < messages.lastIndex
@@ -1721,32 +1745,43 @@ fun ChatScreen(
                                             }
                                         }
                                         is ChatFeedItem.AssistantBlock -> {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(horizontal = 16.dp, vertical = 2.dp)
-                                            ) {
-                                                val isTool = feedItem.block is MarkdownBlock.AgentTool
-                                                val blockView: @Composable () -> Unit = {
-                                                    MarkdownBlockView(
-                                                        block = feedItem.block,
-                                                        onApproveTool = if (isTool) { { toolCall -> viewModel.approveAndExecuteTerminalTool(toolCall, feedItem.messageId) } } else null,
-                                                        onRejectTool = if (isTool) { { toolCall -> if (toolCall.toolType == ToolType.ASK_CHOICE) viewModel.cancelUserChoices(toolCall, feedItem.messageId) else viewModel.rejectTerminalTool(toolCall, feedItem.messageId) } } else null,
-                                                        onTerminateTool = if (isTool) { { toolCall -> viewModel.terminateRunningTerminalTool(toolCall, feedItem.messageId) } } else null,
-                                                        onSubmitChoices = if (isTool) { { toolCall, responses, summaryPayload -> viewModel.submitUserChoices(toolCall, feedItem.messageId, responses, summaryPayload) } } else null,
-                                                        onSkipChoices = if (isTool) { { toolCall, responses -> viewModel.skipUserChoices(toolCall, feedItem.messageId, responses) } } else null
-                                                    )
+                                            val isTool = feedItem.block is MarkdownBlock.AgentTool
+                                            val isChoice = if (isTool) (feedItem.block as MarkdownBlock.AgentTool).toolCall.toolType == ToolType.ASK_CHOICE else false
+                                            val isPendingApproval = if (isTool) (feedItem.block as MarkdownBlock.AgentTool).toolCall.status == "PENDING_APPROVAL" else false
+                                            val isImageOutput = if (isTool) {
+                                                val tc = (feedItem.block as MarkdownBlock.AgentTool).toolCall
+                                                tc.toolType == ToolType.GENERATE_IMAGE || tc.output.startsWith("data:image/") ||
+                                                    (tc.output.startsWith("file://") && tc.output.matches(Regex(".*\\.(png|jpe?g|webp|gif)(\\?.*)?$", RegexOption.IGNORE_CASE)))
+                                            } else false
+
+                                            // Hide non-interactive background technical tool logs (Ran bash, Executing in Termux, Read file, etc.)
+                                            if (!isTool || isChoice || isPendingApproval || isImageOutput) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 16.dp, vertical = 2.dp)
+                                                ) {
+                                                    val blockView: @Composable () -> Unit = {
+                                                        MarkdownBlockView(
+                                                            block = feedItem.block,
+                                                            onApproveTool = if (isTool) { { toolCall -> viewModel.approveAndExecuteTerminalTool(toolCall, feedItem.messageId) } } else null,
+                                                            onRejectTool = if (isTool) { { toolCall -> if (toolCall.toolType == ToolType.ASK_CHOICE) viewModel.cancelUserChoices(toolCall, feedItem.messageId) else viewModel.rejectTerminalTool(toolCall, feedItem.messageId) } } else null,
+                                                            onTerminateTool = if (isTool) { { toolCall -> viewModel.terminateRunningTerminalTool(toolCall, feedItem.messageId) } } else null,
+                                                            onSubmitChoices = if (isTool) { { toolCall, responses, summaryPayload -> viewModel.submitUserChoices(toolCall, feedItem.messageId, responses, summaryPayload) } } else null,
+                                                            onSkipChoices = if (isTool) { { toolCall, responses -> viewModel.skipUserChoices(toolCall, feedItem.messageId, responses) } } else null
+                                                        )
+                                                    }
+                                                    // Text is selectable per block: each list item has its own selection container, so a
+                                                    // selection never outlives the item when it scrolls away (one container spanning many
+                                                    // items crashed). Interactive blocks (tool cards, web views, media) keep their own gestures.
+                                                    val selectable = when (feedItem.block) {
+                                                        is MarkdownBlock.Paragraph, is MarkdownBlock.Header, is MarkdownBlock.Bullet,
+                                                        is MarkdownBlock.Numbered, is MarkdownBlock.Task, is MarkdownBlock.Blockquote,
+                                                        is MarkdownBlock.Alert, is MarkdownBlock.Table -> true
+                                                        else -> false
+                                                    }
+                                                    if (selectable) SelectionContainer { blockView() } else blockView()
                                                 }
-                                                // Text is selectable per block: each list item has its own selection container, so a
-                                                // selection never outlives the item when it scrolls away (one container spanning many
-                                                // items crashed). Interactive blocks (tool cards, web views, media) keep their own gestures.
-                                                val selectable = when (feedItem.block) {
-                                                    is MarkdownBlock.Paragraph, is MarkdownBlock.Header, is MarkdownBlock.Bullet,
-                                                    is MarkdownBlock.Numbered, is MarkdownBlock.Task, is MarkdownBlock.Blockquote,
-                                                    is MarkdownBlock.Alert, is MarkdownBlock.Table -> true
-                                                    else -> false
-                                                }
-                                                if (selectable) SelectionContainer { blockView() } else blockView()
                                             }
                                         }
                                         // with the working animation on, the working row below replaces these dots
@@ -2205,18 +2240,23 @@ fun ChatScreen(
                     com.example.gemini.ui.opencode.OpenCodeControlsStrip(openCodeBackend)
                 }
 
-                // Segmented Toggle: [ Chat | Voice ]
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                    contentAlignment = Alignment.Center
+                // Segmented Toggle: [ Chat | Voice ] (Only visible in empty state before sending a message)
+                AnimatedVisibility(
+                    visible = messages.isEmpty(),
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
                 ) {
-                    com.example.gemini.ui.components.AuraModeToggle(
-                        currentMode = "chat",
-                        onModeSelected = { mode ->
-                            if (mode == "voice") homeMode = "voice"
-                        },
-                        modifier = Modifier.width(165.dp)
-                    )
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        com.example.gemini.ui.components.AuraModeToggle(
+                            currentMode = "chat",
+                            onModeSelected = { mode ->
+                                if (mode == "voice") homeMode = "voice"
+                            }
+                        )
+                    }
                 }
 
                 // Chat Input Bar with Bottom Model & Thinking Selector Pills (Claude Android Style)
@@ -2290,8 +2330,22 @@ fun ChatScreen(
                     onDeleteQueued = { viewModel.deleteQueued(it) }
                 )
             }
+                } else {
+                    AuraVoiceScreen(
+                        onSwitchToChat = {
+                            scope.launch { pagerState.animateScrollToPage(0) }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
+    }
+
+    if (showPermissionsDialog) {
+        com.example.gemini.ui.components.AppPermissionsDialog(
+            onDismissOrCompleted = { showPermissionsDialog = false }
+        )
     }
 
     // Model Selector Bottom Sheet (Active Model at Top & Expandable Categories)

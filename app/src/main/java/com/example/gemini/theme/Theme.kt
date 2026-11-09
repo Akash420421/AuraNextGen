@@ -86,12 +86,13 @@ fun isSystemInDarkThemeRobust(): Boolean {
 
 @Composable
 fun GeminiTheme(
-    darkTheme: Boolean = isSystemInDarkThemeRobust(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    // the light or dark theme the user picked (Settings → Appearance, or theme_mcp); see ThemeManager
-    ThemeManager.setEffectiveDark(darkTheme)
-    val colorScheme = ThemeManager.schemeOf(ThemeManager.themeFor(darkTheme))
+    // Permanently lock to clean White/Light theme per design requirements
+    val effectiveDark = false
+    ThemeManager.setEffectiveDark(effectiveDark)
+    val colorScheme = ThemeManager.schemeOf(ThemeManager.themeFor(effectiveDark))
     // the terminal emulator takes its colors from the theme too
     val themeColors = ThemeManager.colors
     SideEffect { ThemeTerminal.apply(themeColors) }
@@ -107,14 +108,14 @@ fun GeminiTheme(
                 // what shows behind the app during transitions: the theme, not the white splash layer
                 window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(colorScheme.background.toArgb()))
                 val insetsController = WindowCompat.getInsetsController(window, view)
-                insetsController.isAppearanceLightStatusBars = !darkTheme
-                insetsController.isAppearanceLightNavigationBars = !darkTheme
+                insetsController.isAppearanceLightStatusBars = true
+                insetsController.isAppearanceLightNavigationBars = true
             }
         }
     }
 
     CompositionLocalProvider(
-        LocalIsDarkTheme provides darkTheme
+        LocalIsDarkTheme provides false
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

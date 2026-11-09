@@ -50,10 +50,10 @@
   let frame = 0;
   let currentMode = 'idle'; // 'idle', 'listening', 'thinking', 'speaking'
   
-  // Morph state: 0 = Sphere, 1 = 3D Triangle / Tetrahedron
+  // Morph state: 0 = Sphere (locked to spherical particle orb geometry)
   let morphProgress = 0;
-  let targetMorph = 0; // 0 or 1
-  let autoMorph = true;
+  let targetMorph = 0;
+  let autoMorph = false;
   let morphHoldTimer = 0;
 
   // Regular Tetrahedron 4 Vertices (inscribed in sphere)
@@ -284,11 +284,54 @@
     requestAnimationFrame(draw);
   }
 
-  // Interactivity: Tap to toggle shape or trigger Jarvis
+  // Touch drag rotation for interactive 3D particle sphere
+  let isDragging = false;
+  let lastTouchX = 0, lastTouchY = 0;
+  let didDrag = false;
+
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      isDragging = true;
+      didDrag = false;
+      lastTouchX = e.touches[0].clientX;
+      lastTouchY = e.touches[0].clientY;
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (isDragging && e.touches.length === 1) {
+      e.preventDefault();
+      const tx = e.touches[0].clientX;
+      const ty = e.touches[0].clientY;
+      const dx = tx - lastTouchX;
+      const dy = ty - lastTouchY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        didDrag = true;
+      }
+      angleY += dx * 0.008;
+      angleX -= dy * 0.008;
+      lastTouchX = tx;
+      lastTouchY = ty;
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', (e) => {
+    isDragging = false;
+    if (!didDrag) {
+      // Tap on orb
+      if (window.AndroidBridge && window.AndroidBridge.onOrbTapped) {
+        window.AndroidBridge.onOrbTapped();
+      }
+    }
+  });
+
+  canvas.addEventListener('touchcancel', () => {
+    isDragging = false;
+  });
+
+  // Container click fallback for desktop/mouse
   container.addEventListener('click', () => {
-    targetMorph = targetMorph === 0 ? 1 : 0;
-    morphHoldTimer = 0;
-    if (window.AndroidBridge && window.AndroidBridge.onOrbTapped) {
+    if (!didDrag && window.AndroidBridge && window.AndroidBridge.onOrbTapped) {
       window.AndroidBridge.onOrbTapped();
     }
   });

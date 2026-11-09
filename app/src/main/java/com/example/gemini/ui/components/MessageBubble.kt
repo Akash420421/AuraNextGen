@@ -266,8 +266,8 @@ fun MessageBubble(
                             .fillMaxWidth()
                             .padding(top = 6.dp)
                     ) {
-                        // Token & Cache Telemetry Badge (Displayed just above action icons)
-                        if (message.tokenUsage != null) {
+                        // Token & Cache Telemetry Badge (Hidden from user chat per clean UI requirement)
+                        if (false && message.tokenUsage != null) {
                             val payloadToShow = message.rawContent ?: message.rawPayload
                             TokenUsageTelemetryPill(
                                 usage = message.tokenUsage,
@@ -584,8 +584,8 @@ fun AssistantMessageFooter(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 2.dp)
     ) {
-        // Token & Cache Telemetry Badge (Displayed just above action icons)
-        if (message.tokenUsage != null) {
+        // Token & Cache Telemetry Badge (Hidden from user chat per clean UI requirement)
+        if (false && message.tokenUsage != null) {
             val payloadToShow = message.rawContent ?: message.rawPayload
             TokenUsageTelemetryPill(
                 usage = message.tokenUsage,
