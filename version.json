@@ -1,15 +1,16 @@
 {
-  "version_code": 127,
-  "version_name": "1.2.4",
+  "version_code": 128,
+  "version_name": "1.2.5",
   "min_supported_version_code": 1,
   "changelog": [
-    "Full-screen edge-to-edge layout with frosted blur top/bottom chrome",
-    "Exact custom staggered 3-line menu and overlapping plus new chat icons",
-    "Refined Chat | Voice segmented switcher with recessed track and shadow thumb",
-    "Restored 260dp 3D particle orb with canvas zero-dimension fix",
-    "Voice bottom controls row with Screen, Tap to Start, and Auto buttons",
-    "Moved 4 core tools into Navigation Drawer footer and removed floating widget",
-    "Drawer width fixed to 70% with reliable swipe-to-close gesture handling"
+    "Grok-style 8-dot circular chasing spinner thinking animation with shimmering text",
+    "Clean collapsed thought block showing only '> Thought for X.Xs' with no preview snippet",
+    "Inline image generation skeleton loader with 3 animated cycling stages",
+    "Direct inline rendering of generated images in chat with top-right share and action bar",
+    "Full-screen blurred-backdrop image lightbox with working Share, Copy, and Save capsule buttons",
+    "Smooth feather gradients eliminating bottom input bar cut line and text bleed",
+    "Pebble-rounded new chat icon with 6.5dp corner radius",
+    "Restored Part 7 Three.js 3D particle orb on Voice screen with touch rotation"
   ],
   "is_critical": false
 }

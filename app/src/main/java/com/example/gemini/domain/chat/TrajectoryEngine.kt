@@ -759,6 +759,66 @@ class TrajectoryEngine {
                     }
                     seenMsgIds.add(aId)
 
+                    // Inline image generation pipeline
+                    val assistantAttachments = mutableListOf<ChatAttachment>()
+
+                    for (tc in toolCalls) {
+                        if ((tc.toolType == ToolType.GENERATE_IMAGE || tc.name == "generate_image") && tc.output.isNotBlank()) {
+                            val uri = tc.output.trim()
+                            val isBase64 = uri.startsWith("data:image/")
+                            assistantAttachments.add(
+                                ChatAttachment(
+                                    id = "gen_${tc.id}",
+                                    name = "generated_image_${tc.id}.png",
+                                    path = uri,
+                                    localUri = if (isBase64) null else uri,
+                                    isImage = true,
+                                    mimeType = "image/png"
+                                )
+                            )
+                        }
+                    }
+
+                    val imageArtifacts = _artifacts.value.filter { snap ->
+                        val uri = snap.absoluteUri.lowercase()
+                        val name = snap.name.lowercase()
+                        uri.endsWith(".png") || uri.endsWith(".jpg") || uri.endsWith(".jpeg") || uri.endsWith(".webp") ||
+                        name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".webp")
+                    }
+
+                    val isImagePrompt = toolCalls.any {
+                        it.name == "generate_image" ||
+                        it.command.contains("image-generator", ignoreCase = true) ||
+                        it.name.contains("image_generator", ignoreCase = true) ||
+                        (it.name == "invoke_subagent" && it.command.contains("image", ignoreCase = true))
+                    } || combinedContent.contains("image generator", ignoreCase = true) ||
+                         combinedContent.contains("generating an image", ignoreCase = true) ||
+                         combinedContent.contains("generating image", ignoreCase = true) ||
+                         combinedContent.contains("create an image", ignoreCase = true) ||
+                         combinedContent.contains("will share the image as soon as it is generated", ignoreCase = true)
+
+                    if (isImagePrompt && imageArtifacts.isNotEmpty()) {
+                        for (snap in imageArtifacts.takeLast(1)) {
+                            val uri = snap.absoluteUri
+                            if (assistantAttachments.none { it.path == uri || it.localUri == uri }) {
+                                assistantAttachments.add(
+                                    ChatAttachment(
+                                        id = snap.name.ifBlank { uri.substringAfterLast('/') },
+                                        name = snap.name.ifBlank { uri.substringAfterLast('/') },
+                                        path = uri,
+                                        localUri = uri,
+                                        isImage = true,
+                                        mimeType = "image/png"
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    val isGeneratingImage = isImagePrompt && assistantAttachments.isEmpty() && (
+                        turn.isStreaming || toolCalls.any { it.status == "RUNNING" || it.status == "PENDING_APPROVAL" }
+                    )
+
                     messages.add(
                         ChatMessage(
                             id = aId,
@@ -770,7 +830,9 @@ class TrajectoryEngine {
                             toolCalls = toolCalls,
                             isStreaming = turn.isStreaming,
                             tokenUsage = turn.tokenUsage,
-                            modelId = turn.modelId
+                            modelId = turn.modelId,
+                            attachments = assistantAttachments,
+                            isGeneratingImage = isGeneratingImage
                         )
                     )
                 }

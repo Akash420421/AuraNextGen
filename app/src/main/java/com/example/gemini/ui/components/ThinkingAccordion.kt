@@ -41,13 +41,6 @@ fun ThinkingAccordion(
         label = "thought_chevron_rotation"
     )
 
-    val previewText = remember(thoughtText) {
-        thoughtText.trim()
-            .lines()
-            .map { it.trim().removePrefix("#").removePrefix("*").removePrefix("-").trim() }
-            .firstOrNull { it.isNotBlank() } ?: ""
-    }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -77,45 +70,20 @@ fun ThinkingAccordion(
             Spacer(modifier = Modifier.width(6.dp))
 
             if (isStreaming) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(ClaudeTerracotta)
-                )
-                Spacer(modifier = Modifier.width(5.dp))
-                Text(
-                    text = "Thinking...",
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = ClaudeTerracotta
-                )
+                GrokThinkingIndicator(text = "Thinking")
             } else {
-                val title = if (durationMs != null && durationMs > 0) "Thought for ${formatDuration(durationMs)}" else "Thinking process"
+                val title = if (durationMs != null && durationMs > 0) {
+                    val secs = durationMs / 1000.0
+                    String.format(java.util.Locale.US, "Thought for %.1fs", secs)
+                } else {
+                    "Thought"
+                }
                 Text(
                     text = title,
-                    fontSize = 12.5.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                 )
-
-                if (!isExpanded && previewText.isNotBlank()) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "·",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = previewText,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                }
             }
         }
 

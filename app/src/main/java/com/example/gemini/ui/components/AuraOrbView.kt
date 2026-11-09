@@ -42,7 +42,7 @@ fun AuraOrbView(
             Phase.SPEAKING -> "speaking"
             else -> "idle"
         }
-        wv.evaluateJavascript("if (window.setAuraMode) { window.setAuraMode('$mode'); }", null)
+        wv.evaluateJavascript("if (window.setAuraMode) { window.setAuraMode('$mode'); } else if (window.JarvisOrb && window.JarvisOrb.setState) { window.JarvisOrb.setState('$mode'); }", null)
     }
 
     Box(modifier = modifier) {
@@ -50,6 +50,10 @@ fun AuraOrbView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 WebView(ctx).apply {
+                    layoutParams = android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                    )
                     setBackgroundColor(Color.TRANSPARENT)
                     setLayerType(WebView.LAYER_TYPE_HARDWARE, null)
                     settings.apply {
@@ -57,6 +61,12 @@ fun AuraOrbView(
                         domStorageEnabled = true
                         allowFileAccess = true
                         allowContentAccess = true
+                        @Suppress("DEPRECATION")
+                        allowFileAccessFromFileURLs = true
+                        @Suppress("DEPRECATION")
+                        allowUniversalAccessFromFileURLs = true
+                        loadWithOverviewMode = true
+                        useWideViewPort = true
                         cacheMode = WebSettings.LOAD_NO_CACHE
                     }
                     webViewClient = object : WebViewClient() {
@@ -68,7 +78,7 @@ fun AuraOrbView(
                                 Phase.SPEAKING -> "speaking"
                                 else -> "idle"
                             }
-                            view?.evaluateJavascript("if (window.setAuraMode) { window.setAuraMode('$mode'); }", null)
+                            view?.evaluateJavascript("if (window.setAuraMode) { window.setAuraMode('$mode'); } else if (window.JarvisOrb && window.JarvisOrb.setState) { window.JarvisOrb.setState('$mode'); }", null)
                         }
                     }
                     addJavascriptInterface(

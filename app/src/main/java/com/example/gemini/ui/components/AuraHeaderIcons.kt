@@ -57,44 +57,50 @@ fun StaggeredMenuIcon(
 }
 
 /**
- * Clean thin-stroke rounded chat bubble outline with overlapping '+' badge in top-right corner.
- * - Size: 22dp x 22dp
- * - Stroke: 1.8dp with rounded caps, #111827
+ * Generously rounded chat bubble outline with clean '+' badge in top-right corner.
+ * - Size: 24dp x 24dp
+ * - Corner radius: 6.5dp for smooth pebble contour
+ * - Stroke: 1.8dp with StrokeCap.Round, StrokeJoin.Round, #111827
  */
 @Composable
 fun NewChatIcon(
     modifier: Modifier = Modifier,
     tint: Color = Color(0xFF111827)
 ) {
-    Canvas(modifier = modifier.size(22.dp)) {
+    Canvas(modifier = modifier.size(24.dp)) {
         val strokePx = 1.8.dp.toPx()
         val cap = StrokeCap.Round
+        val stroke = Stroke(
+            width = strokePx,
+            cap = cap,
+            join = androidx.compose.ui.graphics.StrokeJoin.Round
+        )
 
-        // Main speech bubble body (rounded rect) with speech tail
+        // Generously rounded chat bubble body
         val bubblePath = Path().apply {
             addRoundRect(
                 RoundRect(
-                    left = 2.dp.toPx(),
+                    left = 2.5.dp.toPx(),
                     top = 5.dp.toPx(),
-                    right = 16.5.dp.toPx(),
-                    bottom = 17.5.dp.toPx(),
-                    cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                    right = 17.5.dp.toPx(),
+                    bottom = 18.5.dp.toPx(),
+                    cornerRadius = CornerRadius(6.5.dp.toPx(), 6.5.dp.toPx())
                 )
             )
             // Speech tail at bottom-left
-            moveTo(5.dp.toPx(), 17.5.dp.toPx())
-            lineTo(3.dp.toPx(), 20.5.dp.toPx())
-            lineTo(8.dp.toPx(), 17.5.dp.toPx())
+            moveTo(6.dp.toPx(), 18.5.dp.toPx())
+            lineTo(3.5.dp.toPx(), 21.5.dp.toPx())
+            lineTo(9.5.dp.toPx(), 18.5.dp.toPx())
         }
 
         drawPath(
             path = bubblePath,
             color = tint,
-            style = Stroke(width = strokePx, cap = cap)
+            style = stroke
         )
 
-        // Overlapping '+' badge in top-right corner
-        val cx = 17.5.dp.toPx()
+        // Clean '+' badge in top-right
+        val cx = 18.5.dp.toPx()
         val cy = 5.5.dp.toPx()
         val arm = 3.5.dp.toPx()
 

@@ -24,8 +24,13 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DataObject
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -102,6 +107,15 @@ fun MessageBubble(
 
     val isUser = message.role == MessageRole.USER
     var showUserActions by remember { mutableStateOf(false) }
+    var previewImageUrl by remember { mutableStateOf<String?>(null) }
+
+    if (previewImageUrl != null) {
+        FullScreenImageDialog(
+            imageUrl = previewImageUrl!!,
+            title = "Image Preview",
+            onDismiss = { previewImageUrl = null }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -241,6 +255,14 @@ fun MessageBubble(
             }
         } else {
             // Assistant response
+            val assistantImages = remember(message.attachments) {
+                message.attachments.filter {
+                    it.isImage || it.name.endsWith(".jpg", true) || it.name.endsWith(".png", true) ||
+                    it.name.endsWith(".jpeg", true) || it.name.endsWith(".webp", true) ||
+                    it.mimeType?.startsWith("image/") == true
+                }
+            }
+
             Column(modifier = Modifier.fillMaxWidth()) {
                 if (message.content.isNotEmpty() || message.toolCalls.isNotEmpty()) {
                     SelectionContainer {
@@ -255,72 +277,97 @@ fun MessageBubble(
                         )
                     }
 
-                } else if (message.isStreaming && !hasActiveRunningTool && message.content.isEmpty() && message.thoughtText.isNullOrEmpty() && message.toolCalls.isEmpty()) {
+                } else if (message.isStreaming && !hasActiveRunningTool && message.content.isEmpty() && message.thoughtText.isNullOrEmpty() && message.toolCalls.isEmpty() && !message.isGeneratingImage) {
                     ModelTypingIndicator(modelId = modelId)
                 }
 
+                // Inline Image Generation Skeleton Card
+                if (message.isGeneratingImage) {
+                    ImageGenerationSkeletonCard(
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+
+                // Render Inline Generated Images
+                if (assistantImages.isNotEmpty()) {
+                    for (imgAtt in assistantImages) {
+                        AssistantGeneratedImageCard(
+                            attachment = imgAtt,
+                            onImageClick = { previewImageUrl = it },
+                            onRegenerate = { onRetry(message) },
+                            onSpeak = {
+                                com.example.gemini.data.jarvis.JarvisController.postStatus(
+                                    message.content.ifBlank { "Here is your generated image" },
+                                    speak = true
+                                )
+                            }
+                        )
+                    }
+                }
+
                 // Token Telemetry and Action Icons (Copy, Retry, Raw Payload, Artifacts)
-                if (!message.isStreaming && message.content.isNotEmpty()) {
+                if (!message.isStreaming && (message.content.isNotEmpty() || assistantImages.isNotEmpty())) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 6.dp)
                     ) {
-                        // Token & Cache Telemetry Badge (Hidden from user chat per clean UI requirement)
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.Start,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(
-                                onClick = {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("Copied Response", message.content)
-                                    clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, "Copied response", Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.ContentCopy,
-                                    contentDescription = "Copy message",
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(4.dp))
-
-                            IconButton(
-                                onClick = { onRetry(message) },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Refresh,
-                                    contentDescription = "Regenerate response",
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-
-                            val payloadToShow = message.rawContent ?: message.rawPayload
-                            if (!payloadToShow.isNullOrBlank()) {
-                                Spacer(modifier = Modifier.width(4.dp))
+                            if (message.content.isNotEmpty()) {
                                 IconButton(
-                                    onClick = { onViewRawPayload?.invoke(payloadToShow) },
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        val clip = ClipData.newPlainText("Copied Response", message.content)
+                                        clipboard.setPrimaryClip(clip)
+                                        Toast.makeText(context, "Copied response", Toast.LENGTH_SHORT).show()
+                                    },
                                     modifier = Modifier.size(28.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Outlined.DataObject,
-                                        contentDescription = "View Raw Request Payload",
-                                        tint = com.example.gemini.theme.AppColors.accentTeal,
+                                        imageVector = Icons.Outlined.ContentCopy,
+                                        contentDescription = "Copy message",
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
+                                IconButton(
+                                    onClick = { onRetry(message) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Refresh,
+                                        contentDescription = "Regenerate response",
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
+
+                                val payloadToShow = message.rawContent ?: message.rawPayload
+                                if (!payloadToShow.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    IconButton(
+                                        onClick = { onViewRawPayload?.invoke(payloadToShow) },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.DataObject,
+                                            contentDescription = "View Raw Request Payload",
+                                            tint = com.example.gemini.theme.AppColors.accentTeal,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
                             }
 
-                            if (onShowArtifacts != null && artifactsCount > 0) {
+                            // Only show Artifacts sheet button if image is NOT rendered inline
+                            if (onShowArtifacts != null && artifactsCount > 0 && assistantImages.isEmpty()) {
                                 Spacer(modifier = Modifier.width(4.dp))
                                 IconButton(
                                     onClick = onShowArtifacts,
@@ -703,31 +750,10 @@ fun ModelTypingIndicator(
     modelId: String,
     modifier: Modifier = Modifier
 ) {
-    var phraseIndex by remember { mutableIntStateOf(0) }
-
-    LaunchedEffect(Unit) {
-        phraseIndex = (0 until WAITING_PHRASES.size).random()
-        while (true) {
-            delay(3500L)
-            phraseIndex = (phraseIndex + 1) % WAITING_PHRASES.size
-        }
-    }
-
-    val phrase = WAITING_PHRASES.getOrElse(phraseIndex) { WAITING_PHRASES[0] }
-
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = ClaudeTerracotta.copy(alpha = 0.08f),
-        border = BorderStroke(1.dp, ClaudeTerracotta.copy(alpha = 0.22f))
-    ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            WaitingDotsText(phrase = phrase)
-        }
-    }
+    GrokThinkingIndicator(
+        modifier = modifier.padding(vertical = 4.dp),
+        text = "Thinking"
+    )
 }
 
 @Composable
@@ -923,8 +949,219 @@ fun ContextSummaryCheckpointBanner(
     }
 }
 
-private fun formatUserDisplayContent(content: String): String {
-    return content.trim()
+@Composable
+private fun AssistantGeneratedImageCard(
+    attachment: com.example.gemini.domain.model.ChatAttachment,
+    onImageClick: (String) -> Unit,
+    onRegenerate: () -> Unit,
+    onSpeak: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var isLiked by remember { mutableStateOf<Boolean?>(null) }
+
+    val rawUri = remember(attachment) {
+        val path = attachment.path
+        when {
+            !attachment.localUri.isNullOrBlank() -> attachment.localUri
+            !attachment.url.isNullOrBlank() -> com.example.gemini.data.preferences.AuthPreferences.rebaseBridgeUrl(attachment.url)
+            path.startsWith("data:image/") || path.startsWith("http://") || path.startsWith("https://") || path.startsWith("content://") -> path
+            path.startsWith("file://") -> path
+            path.isNotBlank() -> "file://$path"
+            else -> ""
+        }
+    }
+    val memKey = remember(rawUri) { HubMediaResolver.normalizeKey(rawUri) }
+    var resolvedUri by remember(rawUri) {
+        mutableStateOf(if (rawUri.isNotBlank()) HubMediaResolver.getResolvedUriSync(context, rawUri) else "")
+    }
+
+    LaunchedEffect(rawUri) {
+        if (rawUri.isNotBlank() && !HubMediaResolver.isLocalOrCached(context, rawUri)) {
+            val res = HubMediaResolver.resolveMediaUri(context, rawUri)
+            if (res.isNotBlank()) {
+                resolvedUri = res
+            }
+        }
+    }
+
+    val finalUri = resolvedUri.ifBlank { rawUri }
+    val coilData: Any? = remember(finalUri, attachment.base64, memKey) {
+        val cachedBytes = HubMediaResolver.getImageBytes(memKey)
+        when {
+            cachedBytes != null -> cachedBytes
+            finalUri.startsWith("data:image/") -> {
+                try {
+                    val b64 = finalUri.substringAfter("base64,")
+                    android.util.Base64.decode(b64, android.util.Base64.DEFAULT)
+                } catch (_: Exception) {
+                    finalUri
+                }
+            }
+            finalUri.isNotBlank() -> finalUri
+            else -> null
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .widthIn(max = 320.dp)
+            .padding(vertical = 6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFFF3F4F6))
+                .clickable { onImageClick(finalUri) }
+        ) {
+            if (coilData != null) {
+                AsyncImage(
+                    model = coilData,
+                    contentDescription = "Generated Image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // Top-right 32dp circular dark translucent Share button
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp)
+            ) {
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            val shareUri = ImageDownloadHelper.getShareableUri(context, finalUri, attachment.name)
+                            if (shareUri != null) {
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "image/*"
+                                    putExtra(Intent.EXTRA_STREAM, shareUri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, "Share Image"))
+                            } else {
+                                Toast.makeText(context, "Could not share image", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.45f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Share,
+                        contentDescription = "Share Image",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Action row below image: 👍 Like, 👎 Dislike, 🔄 Regenerate, 🔗 Share, ⋯ More, 🔊 Speaker
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = {
+                    isLiked = if (isLiked == true) null else true
+                    Toast.makeText(context, if (isLiked == true) "Liked" else "Feedback removed", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ThumbUp,
+                    contentDescription = "Like",
+                    tint = if (isLiked == true) ClaudeTerracotta else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            IconButton(
+                onClick = {
+                    isLiked = if (isLiked == false) null else false
+                    Toast.makeText(context, if (isLiked == false) "Disliked" else "Feedback removed", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ThumbDown,
+                    contentDescription = "Dislike",
+                    tint = if (isLiked == false) ClaudeTerracotta else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            IconButton(
+                onClick = onRegenerate,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = "Regenerate",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            IconButton(
+                onClick = {
+                    coroutineScope.launch {
+                        val shareUri = ImageDownloadHelper.getShareableUri(context, finalUri, attachment.name)
+                        if (shareUri != null) {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "image/*"
+                                putExtra(Intent.EXTRA_STREAM, shareUri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Image"))
+                        }
+                    }
+                },
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Share,
+                    contentDescription = "Share",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            IconButton(
+                onClick = { onImageClick(finalUri) },
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.MoreHoriz,
+                    contentDescription = "More",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            IconButton(
+                onClick = onSpeak,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.VolumeUp,
+                    contentDescription = "Read Aloud",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
 }
 
 @Composable

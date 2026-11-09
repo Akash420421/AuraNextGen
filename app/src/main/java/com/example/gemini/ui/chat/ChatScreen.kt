@@ -2118,11 +2118,10 @@ fun ChatScreen(
                         .fillMaxWidth()
                         .background(
                             Brush.verticalGradient(
-                                listOf(
-                                    Color.White.copy(alpha = 0.96f),
-                                    Color.White.copy(alpha = 0.88f),
-                                    Color.White.copy(alpha = 0.0f)
-                                )
+                                0.00f to Color.White,
+                                0.40f to Color.White.copy(alpha = 0.95f),
+                                0.70f to Color.White.copy(alpha = 0.65f),
+                                1.00f to Color.White.copy(alpha = 0.0f)
                             )
                         )
                         .statusBarsPadding()
@@ -2193,11 +2192,10 @@ fun ChatScreen(
                         .fillMaxWidth()
                         .background(
                             Brush.verticalGradient(
-                                listOf(
-                                    Color.White.copy(alpha = 0.0f),
-                                    Color.White.copy(alpha = 0.88f),
-                                    Color.White.copy(alpha = 0.98f)
-                                )
+                                0.00f to Color.White.copy(alpha = 0.0f),
+                                0.30f to Color.White.copy(alpha = 0.65f),
+                                0.60f to Color.White.copy(alpha = 0.95f),
+                                1.00f to Color.White
                             )
                         )
                         .navigationBarsPadding()

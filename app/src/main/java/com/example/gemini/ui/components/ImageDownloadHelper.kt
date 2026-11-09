@@ -281,5 +281,80 @@ object ImageDownloadHelper {
         }
         return "image/png"
     }
+
+    suspend fun saveImageToGallery(
+        context: Context,
+        imageSource: String,
+        title: String = ""
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val bytes = resolveImageBytes(context, imageSource) ?: return@withContext false
+            val mimeType = detectMimeType(imageSource, bytes)
+            val extension = if (mimeType.contains("jpeg") || mimeType.contains("jpg")) ".jpg" else if (mimeType.contains("webp")) ".webp" else ".png"
+
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val safeTitle = title.trim()
+                .replace("[^a-zA-Z0-9_-]".toRegex(), "_")
+                .take(30)
+                .trimEnd('_')
+            val fileName = if (safeTitle.isNotBlank()) "AuraAI_${safeTitle}_$timestamp$extension" else "AuraAI_$timestamp$extension"
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/AuraAI")
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+
+                val resolver = context.contentResolver
+                val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                val itemUri = resolver.insert(collection, contentValues) ?: return@withContext false
+
+                resolver.openOutputStream(itemUri)?.use { out ->
+                    out.write(bytes)
+                    out.flush()
+                }
+
+                contentValues.clear()
+                contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                resolver.update(itemUri, contentValues, null, null)
+                true
+            } else {
+                val picturesDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "AuraAI")
+                if (!picturesDir.exists()) picturesDir.mkdirs()
+                val targetFile = File(picturesDir, fileName)
+                targetFile.writeBytes(bytes)
+                true
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun getShareableUri(
+        context: Context,
+        imageSource: String,
+        title: String = ""
+    ): Uri? = withContext(Dispatchers.IO) {
+        try {
+            val bytes = resolveImageBytes(context, imageSource) ?: return@withContext null
+            val mimeType = detectMimeType(imageSource, bytes)
+            val extension = if (mimeType.contains("jpeg") || mimeType.contains("jpg")) ".jpg" else if (mimeType.contains("webp")) ".webp" else ".png"
+
+            val safeTitle = title.trim().replace("[^a-zA-Z0-9_-]".toRegex(), "_").take(20).trimEnd('_')
+            val fileName = if (safeTitle.isNotBlank()) "share_${safeTitle}$extension" else "share_image$extension"
+            val cacheFile = File(context.cacheDir, fileName)
+            cacheFile.writeBytes(bytes)
+
+            try {
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", cacheFile)
+            } catch (_: Exception) {
+                Uri.fromFile(cacheFile)
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
 }
 
