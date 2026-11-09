@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         instanceRef = java.lang.ref.WeakReference(this)
         com.example.gemini.data.jarvis.JarvisPreferences.init(this)
         com.example.gemini.data.remote.inspector.NetworkInspectorManager.isEnabled =
@@ -183,19 +184,10 @@ class MainActivity : ComponentActivity() {
                 val window = (context as? android.app.Activity)?.window
                 if (window != null && !view.isInEditMode) {
                     val insetsController = androidx.core.view.WindowCompat.getInsetsController(window, view)
-                    if (currentViewMode == AppViewMode.TERMINAL) {
-                        window.statusBarColor = android.graphics.Color.TRANSPARENT
-                        window.navigationBarColor = android.graphics.Color.TRANSPARENT
-                        insetsController.isAppearanceLightStatusBars = false
-                        insetsController.isAppearanceLightNavigationBars = false
-                    } else {
-                        val bgArgb =
-                            if (useDarkTheme) com.example.gemini.theme.ClaudeDarkBg.toArgb() else com.example.gemini.theme.ClaudeCream.toArgb()
-                        window.statusBarColor = bgArgb
-                        window.navigationBarColor = bgArgb
-                        insetsController.isAppearanceLightStatusBars = !useDarkTheme
-                        insetsController.isAppearanceLightNavigationBars = !useDarkTheme
-                    }
+                    window.statusBarColor = android.graphics.Color.TRANSPARENT
+                    window.navigationBarColor = android.graphics.Color.TRANSPARENT
+                    insetsController.isAppearanceLightStatusBars = !useDarkTheme
+                    insetsController.isAppearanceLightNavigationBars = !useDarkTheme
                 }
                 onDispose {}
             }
@@ -455,54 +447,8 @@ class MainActivity : ComponentActivity() {
                                 val switcherToolsInstalled by chatViewModel.isLocalToolsInstalled.collectAsState(initial = false)
                                 val switcherToolsEnabled by chatViewModel.isLocalToolsEnabled.collectAsState(initial = false)
                                 var showSwitcherToolsInstall by remember { mutableStateOf(false) }
-                                com.example.gemini.ui.components.FloatingSwitcherWidget(
-                                    currentViewMode = currentViewMode,
-                                    orientation = floatingSwitcherOrientation,
-                                    items = floatingSwitcherItems,
-                                    autoCollapseTimeoutSec = floatingSwitcherAutoCollapseSec,
-                                    savedPosXRatio = floatingSwitcherPosX,
-                                    savedPosYRatio = floatingSwitcherPosY,
-                                    onNavigateToChat = {
-                                        previousViewMode = currentViewMode
-                                        currentViewMode = AppViewMode.CHAT
-                                    },
-                                    onNavigateToIde = {
-                                        previousViewMode = currentViewMode
-                                        currentViewMode = AppViewMode.IDE
-                                    },
-                                    onNavigateToBrowser = {
-                                        previousViewMode = currentViewMode
-                                        currentViewMode = AppViewMode.BROWSER
-                                    },
-                                    onNavigateToTerminal = {
-                                        val ready = switcherUseSsh ||
-                                            com.example.gemini.data.preferences.AuthPreferences.currentRemoteMode ||
-                                            (switcherToolsInstalled && switcherToolsEnabled)
-                                        when {
-                                            ready -> {
-                                                previousViewMode = currentViewMode
-                                                currentViewMode = AppViewMode.TERMINAL
-                                            }
-                                            switcherToolsInstalled -> {
-                                                chatViewModel.setLocalToolsEnabled(true)
-                                                previousViewMode = currentViewMode
-                                                currentViewMode = AppViewMode.TERMINAL
-                                            }
-                                            else -> showSwitcherToolsInstall = true
-                                        }
-                                    },
-                                    onNavigateToNotes = {
-                                        previousViewMode = currentViewMode
-                                        currentViewMode = AppViewMode.NOTES
-                                    },
-                                    onNavigateToFiles = {
-                                        previousViewMode = currentViewMode
-                                        currentViewMode = AppViewMode.FILES
-                                    },
-                                    onPositionSaved = { x, y ->
-                                        chatViewModel.saveFloatingSwitcherPosition(x, y)
-                                    }
-                                )
+                                // Floating right-edge < button and popup toolbar removed per Issue 5;
+                                // Core utilities (<>, >_, 🌐, 🪄) migrated into the 3-Line Navigation Drawer footer bar.
                                 if (showSwitcherToolsInstall) {
                                     com.example.gemini.ui.settings.LocalToolsInstallDialog(
                                         authPreferences = chatViewModel.authPreferences,

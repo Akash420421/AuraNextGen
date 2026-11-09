@@ -75,6 +75,9 @@ import com.example.gemini.data.remote.AgyHubClient
 import com.example.gemini.domain.model.Conversation
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Terminal
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Description
 import com.example.gemini.theme.ClaudeTerracotta
 import com.example.gemini.theme.GeminiBlue
@@ -114,6 +117,10 @@ fun ChatHistoryDrawer(
     onOpenPermissions: () -> Unit = {},
     onNavigateProjects: () -> Unit = { onToggleGroupByWorkspace(!groupByWorkspace) },
     onNavigateImages: () -> Unit = {},
+    onNavigateIde: (() -> Unit)? = null,
+    onNavigateTerminal: (() -> Unit)? = null,
+    onNavigateBrowser: (() -> Unit)? = null,
+    onNavigateNotes: (() -> Unit)? = null,
     /** Opens the floating theme picker (a palette button next to Settings; hidden when null). */
     onOpenThemes: (() -> Unit)? = null,
     onLogin: () -> Unit = {},
@@ -594,7 +601,7 @@ fun ChatHistoryDrawer(
     }
 
     ModalDrawerSheet(
-        modifier = modifier.fillMaxWidth(0.82f),
+        modifier = modifier.fillMaxWidth(0.70f).widthIn(max = 270.dp),
         drawerContainerColor = MaterialTheme.colorScheme.surface,
         drawerTonalElevation = 0.dp
     ) {
@@ -1198,7 +1205,81 @@ fun ChatHistoryDrawer(
                     )
                 }
 
-                // Themes: palette icon hidden per clean UI requirement
+                // 4 core utility buttons moved from floating widget: <>, >_, 🌐, 🪄
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    val toolTint = Color(0xFF374151)
+                    if (onNavigateIde != null) {
+                        Surface(
+                            onClick = onNavigateIde,
+                            shape = CircleShape,
+                            color = Color.Transparent,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Code,
+                                    contentDescription = "Code",
+                                    tint = toolTint,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                    if (onNavigateTerminal != null) {
+                        Surface(
+                            onClick = onNavigateTerminal,
+                            shape = CircleShape,
+                            color = Color.Transparent,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Terminal,
+                                    contentDescription = "Terminal",
+                                    tint = toolTint,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                    if (onNavigateBrowser != null) {
+                        Surface(
+                            onClick = onNavigateBrowser,
+                            shape = CircleShape,
+                            color = Color.Transparent,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Language,
+                                    contentDescription = "Browser",
+                                    tint = toolTint,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                    if (onNavigateNotes != null) {
+                        Surface(
+                            onClick = onNavigateNotes,
+                            shape = CircleShape,
+                            color = Color.Transparent,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AutoAwesome,
+                                    contentDescription = "Tools",
+                                    tint = toolTint,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
 
                 // keeps the profile / login button on the right
                 Spacer(modifier = Modifier.weight(1f))

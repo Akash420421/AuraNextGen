@@ -49,6 +49,9 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import com.example.gemini.ui.components.StaggeredMenuIcon
+import com.example.gemini.ui.components.NewChatIcon
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -1045,7 +1048,7 @@ fun ChatScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             ModalNavigationDrawer(
                 drawerState = drawerState,
-                gesturesEnabled = pagerState.currentPage == 0 && conversationBackStack.isEmpty(),
+                gesturesEnabled = drawerState.isOpen || (pagerState.currentPage == 0 && conversationBackStack.isEmpty()),
         drawerContent = {
             ChatHistoryDrawer(
                 conversations = conversations,
@@ -1147,6 +1150,24 @@ fun ChatScreen(
                 onNavigateImages = {
                     showArtifactsDrawer = true
                     scope.launch { drawerState.close() }
+                },
+                onNavigateIde = {
+                    scope.launch { drawerState.close() }
+                    onNavigateToIde()
+                },
+                onNavigateTerminal = {
+                    scope.launch { drawerState.close() }
+                    onNavigateToTerminal()
+                },
+                onNavigateBrowser = {
+                    scope.launch { drawerState.close() }
+                    onNavigateToBrowser()
+                },
+                onNavigateNotes = onNavigateToNotes?.let { cb ->
+                    {
+                        scope.launch { drawerState.close() }
+                        cb()
+                    }
                 },
                 // the sidebar stays open: the picker floats over it so the new look shows on the sidebar and the chat
                 onOpenThemes = { showThemePanel = !showThemePanel },
@@ -1328,97 +1349,25 @@ fun ChatScreen(
         }
         Scaffold(
             snackbarHost = {},
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            text = "AURA AI",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    navigationIcon = {
-                        if (conversationBackStack.isNotEmpty()) {
-                            IconButton(onClick = navigateBackConversation) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        } else {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = "Open Drawer",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(26.dp)
-                                )
-                            }
-                        }
-                    },
-                    actions = {
-                        if (isInFloatingWindow) {
-                            IconButton(onClick = onMinimizeWindow) {
-                                Icon(
-                                    imageVector = Icons.Default.Remove,
-                                    contentDescription = "Minimize to Bubble",
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
-                                )
-                            }
-                        }
-                        IconButton(
-                            onClick = {
-                                val currentId = currentConv?.id
-                                if (!currentId.isNullOrBlank() && feedItems.isNotEmpty()) {
-                                    ConversationScrollCache.save(currentId, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, isAtBottom)
-                                }
-                                conversationBackStack.clear()
-                                viewModel.startNewChat()
-                                homeMode = "chat"
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.AddComment,
-                                contentDescription = "New Chat",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                        actionIconContentColor = MaterialTheme.colorScheme.onSurface
-                    )
-                )
-            },
+            topBar = {},
             containerColor = MaterialTheme.colorScheme.background,
-            contentWindowInsets = WindowInsets.statusBars
+            contentWindowInsets = WindowInsets(0, 0, 0, 0)
         ) { paddingValues ->
             androidx.compose.foundation.pager.HorizontalPager(
                 state = pagerState,
+                userScrollEnabled = !drawerState.isOpen && conversationBackStack.isEmpty(),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
             ) { page ->
                 if (page == 0) {
-                    // Synchronized container that moves seamlessly with the IME keyboard
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .navigationBarsPadding()
-                            .windowInsetsPadding(WindowInsets.imeAnimationTarget)
+                    Box(
+                        modifier = Modifier.fillMaxSize()
                     ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                ) {
+                        // 1. Full-screen message stream base layer
+                        Box(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
                     val sysStatus = systemConnectionState.status
                     val isServerInitializing = sysStatus == com.example.gemini.data.remote.SystemStatus.STARTING || sysStatus == com.example.gemini.data.remote.SystemStatus.ACQUIRING_CSRF || (sysStatus == com.example.gemini.data.remote.SystemStatus.OFFLINE && isInitialGracePeriod)
                     val isServerStopped = sysStatus == com.example.gemini.data.remote.SystemStatus.OFFLINE && !isInitialGracePeriod
@@ -1675,11 +1624,18 @@ fun ChatScreen(
                         ) {
                                 // iOS-style vertical bounce at the top and bottom (also for a short chat that cannot scroll);
                                 // only this list: code blocks and other sideways scrollers keep Android's own edge effect
-                                val chatBounce = com.example.gemini.ui.components.rememberBouncyLazyScroll(listState)
+                                val statusBarsTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                                val navBarsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                                val imeBottom = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+                                val effectiveBottom = maxOf(navBarsBottom, imeBottom)
+
                                 LazyColumn(
                                     state = listState,
                                     modifier = Modifier.fillMaxSize().then(chatBounce.modifier),
-                                    contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp),
+                                    contentPadding = PaddingValues(
+                                        top = 64.dp + statusBarsTop,
+                                        bottom = 110.dp + effectiveBottom
+                                    ),
                                     userScrollEnabled = chatBounce.userScrollEnabled,
                                     overscrollEffect = chatBounce.overscrollEffect
                                 ) {
@@ -2154,6 +2110,99 @@ fun ChatScreen(
                     }
                 }
 
+                // 2. Overlaid Frosted Glass Blur Top Header
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.96f),
+                                    Color.White.copy(alpha = 0.88f),
+                                    Color.White.copy(alpha = 0.0f)
+                                )
+                            )
+                        )
+                        .statusBarsPadding()
+                ) {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Text(
+                                text = "AURA AI",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = (-0.2).sp,
+                                color = Color(0xFF111827)
+                            )
+                        },
+                        navigationIcon = {
+                            if (conversationBackStack.isNotEmpty()) {
+                                IconButton(onClick = navigateBackConversation) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back",
+                                        tint = Color(0xFF111827),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            } else {
+                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                    StaggeredMenuIcon(tint = Color(0xFF111827))
+                                }
+                            }
+                        },
+                        actions = {
+                            if (isInFloatingWindow) {
+                                IconButton(onClick = onMinimizeWindow) {
+                                    Icon(
+                                        imageVector = Icons.Default.Remove,
+                                        contentDescription = "Minimize to Bubble",
+                                        tint = Color(0xFF111827).copy(alpha = 0.75f)
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = {
+                                    val currentId = currentConv?.id
+                                    if (!currentId.isNullOrBlank() && feedItems.isNotEmpty()) {
+                                        ConversationScrollCache.save(currentId, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, isAtBottom)
+                                    }
+                                    conversationBackStack.clear()
+                                    viewModel.startNewChat()
+                                    homeMode = "chat"
+                                }
+                            ) {
+                                NewChatIcon(tint = Color(0xFF111827))
+                            }
+                        },
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                            containerColor = Color.Transparent,
+                            titleContentColor = Color(0xFF111827),
+                            navigationIconContentColor = Color(0xFF111827),
+                            actionIconContentColor = Color(0xFF111827)
+                        )
+                    )
+                }
+
+                // 3. Overlaid Frosted Glass Blur Bottom Controls & Composer
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.0f),
+                                    Color.White.copy(alpha = 0.88f),
+                                    Color.White.copy(alpha = 0.98f)
+                                )
+                            )
+                        )
+                        .navigationBarsPadding()
+                        .windowInsetsPadding(WindowInsets.imeAnimationTarget)
+                ) {
+
                 // Agent prompts docked above the input (both agents): permission requests, then questions
                 val approvalItems = remember(pendingApprovals, claudePending, openCodePending, isClaudeChat, isOpenCodeChat) {
                     if (isOpenCodeChat) {
@@ -2330,9 +2379,23 @@ fun ChatScreen(
                     onDeleteQueued = { viewModel.deleteQueued(it) }
                 )
             }
-                } else {
-                    AuraVoiceScreen(
+        }
+    } else {
+        AuraVoiceScreen(
                         onSwitchToChat = {
+                            scope.launch { pagerState.animateScrollToPage(0) }
+                        },
+                        onOpenDrawer = {
+                            scope.launch { drawerState.open() }
+                        },
+                        onNewChat = {
+                            val currentId = currentConv?.id
+                            if (!currentId.isNullOrBlank() && feedItems.isNotEmpty()) {
+                                ConversationScrollCache.save(currentId, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, isAtBottom)
+                            }
+                            conversationBackStack.clear()
+                            viewModel.startNewChat()
+                            homeMode = "chat"
                             scope.launch { pagerState.animateScrollToPage(0) }
                         },
                         modifier = Modifier.fillMaxSize()

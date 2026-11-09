@@ -3,13 +3,13 @@
   "version_name": "1.2.4",
   "min_supported_version_code": 1,
   "changelog": [
-    "Clean minimal light UI/UX redesign across Chat and Voice",
-    "Hidden token usage telemetry pills and technical bash execution logs",
-    "Collapsible reasoning accordion defaulted to collapsed",
-    "Centered title header with modern outline icons and zero status dot",
-    "Smooth horizontal swipe gesture between Chat and Voice screens",
-    "Spherical 3D particle orb with finger drag rotation",
-    "Clean top drawer navigation and minimal profile avatar"
+    "Full-screen edge-to-edge layout with frosted blur top/bottom chrome",
+    "Exact custom staggered 3-line menu and overlapping plus new chat icons",
+    "Refined Chat | Voice segmented switcher with recessed track and shadow thumb",
+    "Restored 260dp 3D particle orb with canvas zero-dimension fix",
+    "Voice bottom controls row with Screen, Tap to Start, and Auto buttons",
+    "Moved 4 core tools into Navigation Drawer footer and removed floating widget",
+    "Drawer width fixed to 70% with reliable swipe-to-close gesture handling"
   ],
   "is_critical": false
 }

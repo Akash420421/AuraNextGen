@@ -5,7 +5,9 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -34,18 +36,20 @@ fun AuraModeToggle(
     modifier: Modifier = Modifier
 ) {
     val isChat = currentMode == "chat"
-    val containerBg = Color(0xFFE8E8ED)
-    val thumbBg = Color.White
-    val activeTextColor = Color(0xFF1A1A1A)
-    val inactiveTextColor = Color(0xFF8E8E93)
+    val containerBg = Color(0xFFE4E6EB)
+    val thumbBg = Color(0xFFFFFFFF)
+    val activeTextColor = Color(0xFF111827)
+    val inactiveTextColor = Color(0xFF6B7280)
 
     BoxWithConstraints(
         modifier = modifier
-            .width(148.dp)
+            .width(136.dp)
             .height(34.dp)
-            .clip(RoundedCornerShape(17.dp))
+            .shadow(elevation = 3.dp, shape = RoundedCornerShape(50))
+            .clip(RoundedCornerShape(50))
             .background(containerBg)
-            .padding(2.5.dp)
+            .border(BorderStroke(0.5.dp, Color(0xFFD8DADF)), RoundedCornerShape(50))
+            .padding(3.dp)
     ) {
         val tabWidth = maxWidth / 2
         val thumbOffset by animateDpAsState(
@@ -63,8 +67,8 @@ fun AuraModeToggle(
                 .offset(x = thumbOffset)
                 .width(tabWidth)
                 .fillMaxHeight()
-                .shadow(elevation = 1.5.dp, shape = RoundedCornerShape(15.dp), spotColor = Color(0x24000000))
-                .clip(RoundedCornerShape(15.dp))
+                .shadow(elevation = 4.dp, shape = RoundedCornerShape(50), spotColor = Color(0x33000000))
+                .clip(RoundedCornerShape(50))
                 .background(thumbBg)
         )
 
@@ -83,7 +87,7 @@ fun AuraModeToggle(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(15.dp))
+                    .clip(RoundedCornerShape(50))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -92,7 +96,7 @@ fun AuraModeToggle(
             ) {
                 Text(
                     text = "Chat",
-                    fontSize = 13.5.sp,
+                    fontSize = 13.sp,
                     fontWeight = if (isChat) FontWeight.SemiBold else FontWeight.Medium,
                     color = chatTextColor
                 )
@@ -108,7 +112,7 @@ fun AuraModeToggle(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(15.dp))
+                    .clip(RoundedCornerShape(50))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -117,7 +121,7 @@ fun AuraModeToggle(
             ) {
                 Text(
                     text = "Voice",
-                    fontSize = 13.5.sp,
+                    fontSize = 13.sp,
                     fontWeight = if (!isChat) FontWeight.SemiBold else FontWeight.Medium,
                     color = voiceTextColor
                 )
