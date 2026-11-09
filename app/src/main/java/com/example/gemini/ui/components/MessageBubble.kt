@@ -267,16 +267,6 @@ fun MessageBubble(
                             .padding(top = 6.dp)
                     ) {
                         // Token & Cache Telemetry Badge (Hidden from user chat per clean UI requirement)
-                        if (false && message.tokenUsage != null) {
-                            val payloadToShow = message.rawContent ?: message.rawPayload
-                            TokenUsageTelemetryPill(
-                                usage = message.tokenUsage,
-                                onViewPayload = if (!payloadToShow.isNullOrBlank()) {
-                                    { onViewRawPayload?.invoke(payloadToShow) }
-                                } else null
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                        }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -585,16 +575,6 @@ fun AssistantMessageFooter(
             .padding(horizontal = 16.dp, vertical = 2.dp)
     ) {
         // Token & Cache Telemetry Badge (Hidden from user chat per clean UI requirement)
-        if (false && message.tokenUsage != null) {
-            val payloadToShow = message.rawContent ?: message.rawPayload
-            TokenUsageTelemetryPill(
-                usage = message.tokenUsage,
-                onViewPayload = if (!payloadToShow.isNullOrBlank()) {
-                    { onViewRawPayload?.invoke(payloadToShow) }
-                } else null
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),

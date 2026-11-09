@@ -697,7 +697,7 @@ fun ChatHistoryDrawer(
                 DrawerNavItem(Icons.Outlined.Home, "Home") { onNavigateHome() }
                 DrawerNavItem(Icons.Outlined.Mic, "Voice Mode") { onNavigateVoice() }
                 DrawerNavItem(Icons.Outlined.Security, "All Permissions") { onOpenPermissions() }
-                DrawerNavItem(Icons.Outlined.Folder, "Projects") { onNavigateProjects() }
+                DrawerNavItem(Icons.Outlined.FolderOpen, "Projects") { onNavigateProjects() }
                 DrawerNavItem(Icons.Outlined.Image, "Images") { onNavigateImages() }
             }
 
@@ -1199,21 +1199,6 @@ fun ChatHistoryDrawer(
                 }
 
                 // Themes: palette icon hidden per clean UI requirement
-                if (false && onOpenThemes != null) {
-                    Surface(
-                        onClick = onOpenThemes,
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Transparent,
-                        modifier = Modifier.padding(end = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Palette,
-                            contentDescription = "Themes",
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(8.dp).size(20.dp)
-                        )
-                    }
-                }
 
                 // keeps the profile / login button on the right
                 Spacer(modifier = Modifier.weight(1f))
