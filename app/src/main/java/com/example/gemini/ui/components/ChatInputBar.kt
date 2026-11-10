@@ -611,7 +611,6 @@ fun ChatInputBar(
         )
     }
 
-    val isDark = isAppInDarkTheme()
     val pillBgColor = if (isDark) Color(0xFF242426) else Color.White
     val pillBorderColor = if (isDark) Color(0x2AFFFFFF) else Color(0x1F000000)
     val pillButtonBg = if (isDark) Color(0xFF2C2C2E) else Color(0xFFECEBE8)
