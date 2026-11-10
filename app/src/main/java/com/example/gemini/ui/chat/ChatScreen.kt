@@ -2496,6 +2496,11 @@ fun ChatScreen(
                             homeMode = "chat"
                             scope.launch { pagerState.animateScrollToPage(0) }
                         },
+                        onStartCall = {
+                            com.example.gemini.data.voice.AgyVoiceCall.start(context, "Voice chat") {
+                                viewModel.agyBackend.prepareVoiceCall()
+                            }
+                        },
                         modifier = Modifier.fillMaxSize()
                     )
                 }

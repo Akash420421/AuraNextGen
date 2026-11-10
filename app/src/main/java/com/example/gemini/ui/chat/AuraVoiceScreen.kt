@@ -44,6 +44,7 @@ fun AuraVoiceScreen(
     onSwitchToChat: () -> Unit,
     onOpenDrawer: () -> Unit = {},
     onNewChat: () -> Unit = {},
+    onStartCall: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -180,8 +181,8 @@ fun AuraVoiceScreen(
                 modifier = Modifier.fillMaxSize(),
                 phase = orbPhase,
                 onOrbTapped = {
-                    if (!callState.active || callState.phase == AgyVoiceCall.Phase.IDLE) {
-                        AgyVoiceCall.start(context, null)
+                    if (!callState.active || callState.phase == AgyVoiceCall.Phase.IDLE || callState.phase == AgyVoiceCall.Phase.FAILED) {
+                        onStartCall()
                     } else {
                         // Toggle mute on orb tap as well
                         AgyVoiceCall.toggleMute()
@@ -197,7 +198,7 @@ fun AuraVoiceScreen(
         ) {
             // Chat / Voice Segmented Pill Switcher
             AuraModeToggle(
-                selectedMode = "voice",
+                currentMode = "voice",
                 onModeSelected = { mode ->
                     if (mode == "chat") onSwitchToChat()
                 }
@@ -288,7 +289,7 @@ fun AuraVoiceScreen(
                         .clickable {
                             if (!callState.active || callState.phase == AgyVoiceCall.Phase.IDLE || callState.phase == AgyVoiceCall.Phase.FAILED) {
                                 // Start call immediately
-                                AgyVoiceCall.start(context, "Voice chat") { viewModel.agyBackend.prepareVoiceCall() }
+                                onStartCall()
                             } else {
                                 val now = SystemClock.uptimeMillis()
                                 if (now - lastTapTime < 340) {
