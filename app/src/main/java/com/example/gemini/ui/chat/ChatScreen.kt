@@ -2162,6 +2162,7 @@ fun ChatScreen(
                                     )
                                 }
                             }
+                            val isCurrentChatEmpty = messages.isEmpty() && feedItems.isEmpty()
                             IconButton(
                                 onClick = {
                                     val currentId = currentConv?.id
@@ -2171,9 +2172,11 @@ fun ChatScreen(
                                     conversationBackStack.clear()
                                     viewModel.startNewChat()
                                     homeMode = "chat"
-                                }
+                                },
+                                enabled = !isCurrentChatEmpty,
+                                modifier = Modifier.size(48.dp)
                             ) {
-                                NewChatIcon(tint = Color(0xFF111827))
+                                NewChatIcon(enabled = !isCurrentChatEmpty)
                             }
                         },
                         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(

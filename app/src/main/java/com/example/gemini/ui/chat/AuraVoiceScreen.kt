@@ -80,15 +80,11 @@ fun AuraVoiceScreen(
             )
 
             // Right: New Chat Icon
-            Surface(
+            IconButton(
                 onClick = onNewChat,
-                shape = CircleShape,
-                color = Color.Transparent,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(48.dp)
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    NewChatIcon(tint = Color(0xFF111827))
-                }
+                NewChatIcon()
             }
         }
 

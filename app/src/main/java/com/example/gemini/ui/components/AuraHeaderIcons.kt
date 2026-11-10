@@ -2,16 +2,16 @@ package com.example.gemini.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.example.gemini.R
 
 /**
  * Clean, thin-stroke staggered 3-line menu icon (☰) matching reference design.
@@ -57,68 +57,21 @@ fun StaggeredMenuIcon(
 }
 
 /**
- * Generously rounded chat bubble outline with clean '+' badge in top-right corner.
- * - Size: 24dp x 24dp
- * - Corner radius: 6.5dp for smooth pebble contour
- * - Stroke: 1.8dp with StrokeCap.Round, StrokeJoin.Round, #111827
+ * Material Design "forum" outlined icon: TWO overlapping speech bubbles.
+ * - Front bubble: top-left, OUTLINED only (hollow inside) with tail at bottom-left.
+ * - Back bubble: bottom-right, SOLID filled with tail at bottom-right.
+ * - 24dp x 24dp size.
  */
 @Composable
 fun NewChatIcon(
     modifier: Modifier = Modifier,
-    tint: Color = Color(0xFF111827)
+    tint: Color = colorResource(R.color.top_bar_icon_tint),
+    enabled: Boolean = true
 ) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val strokePx = 1.8.dp.toPx()
-        val cap = StrokeCap.Round
-        val stroke = Stroke(
-            width = strokePx,
-            cap = cap,
-            join = androidx.compose.ui.graphics.StrokeJoin.Round
-        )
-
-        // Generously rounded chat bubble body
-        val bubblePath = Path().apply {
-            addRoundRect(
-                RoundRect(
-                    left = 2.5.dp.toPx(),
-                    top = 5.dp.toPx(),
-                    right = 17.5.dp.toPx(),
-                    bottom = 18.5.dp.toPx(),
-                    cornerRadius = CornerRadius(6.5.dp.toPx(), 6.5.dp.toPx())
-                )
-            )
-            // Speech tail at bottom-left
-            moveTo(6.dp.toPx(), 18.5.dp.toPx())
-            lineTo(3.5.dp.toPx(), 21.5.dp.toPx())
-            lineTo(9.5.dp.toPx(), 18.5.dp.toPx())
-        }
-
-        drawPath(
-            path = bubblePath,
-            color = tint,
-            style = stroke
-        )
-
-        // Clean '+' badge in top-right
-        val cx = 18.5.dp.toPx()
-        val cy = 5.5.dp.toPx()
-        val arm = 3.5.dp.toPx()
-
-        // Horizontal line of '+'
-        drawLine(
-            color = tint,
-            start = Offset(cx - arm, cy),
-            end = Offset(cx + arm, cy),
-            strokeWidth = strokePx,
-            cap = cap
-        )
-        // Vertical line of '+'
-        drawLine(
-            color = tint,
-            start = Offset(cx, cy - arm),
-            end = Offset(cx, cy + arm),
-            strokeWidth = strokePx,
-            cap = cap
-        )
-    }
+    Icon(
+        painter = painterResource(R.drawable.ic_new_chat),
+        contentDescription = "New chat",
+        tint = if (enabled) tint else tint.copy(alpha = 0.38f),
+        modifier = modifier.size(24.dp)
+    )
 }
