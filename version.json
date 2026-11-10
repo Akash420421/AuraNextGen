@@ -1,16 +1,14 @@
 {
-  "version_code": 128,
-  "version_name": "1.2.5",
+  "version_code": 132,
+  "version_name": "1.2.9",
   "min_supported_version_code": 1,
   "changelog": [
-    "Grok-style 8-dot circular chasing spinner thinking animation with shimmering text",
-    "Clean collapsed thought block showing only '> Thought for X.Xs' with no preview snippet",
-    "Inline image generation skeleton loader with 3 animated cycling stages",
-    "Direct inline rendering of generated images in chat with top-right share and action bar",
-    "Full-screen blurred-backdrop image lightbox with working Share, Copy, and Save capsule buttons",
-    "Smooth feather gradients eliminating bottom input bar cut line and text bleed",
-    "Pebble-rounded new chat icon with 6.5dp corner radius",
-    "Restored Part 7 Three.js 3D particle orb on Voice screen with touch rotation"
+    "Rollback to stable v1.2.5 baseline",
+    "Restored clean, stable AURA AI interface without background service crashes",
+    "Restored Grok-style thinking animation and collapsed thought block",
+    "Restored Part 7 Three.js 3D particle orb on Voice screen with touch rotation",
+    "Restored inline image generation skeleton loader and blurred-backdrop lightbox",
+    "Smooth feather gradients and pebble-rounded new chat icon"
   ],
   "is_critical": false
 }
