@@ -335,6 +335,7 @@ fun ChatScreen(
         }
     }
     var showAttachmentSelector by remember { mutableStateOf(false) }
+    var showAttachFromFiles by remember { mutableStateOf(false) }
     var showProjectPickerDialog by remember { mutableStateOf(false) }
     var showGitCloneDialog by remember { mutableStateOf(false) }
     var showWorkspaceFolderBrowserDialog by remember { mutableStateOf(false) }
@@ -1474,10 +1475,7 @@ fun ChatScreen(
                                         statusColors = agentEntries.associate { it.agent to it.color }
                                     )
                                 }
-                                com.example.gemini.ui.components.ServerStoppedPromptCard(
-                                    onStartServer = restartLocalServer,
-                                    onViewLogs = { showLocalServerOutputDialog = true }
-                                )
+                                com.example.gemini.ui.components.ServerStoppedPromptCard()
                             }
                         }
                     } else if (isAgyChat && isServerInitializing && messages.isEmpty()) {
@@ -3105,9 +3103,23 @@ fun ChatScreen(
         AttachmentSelectorBottomSheet(
             onPickImage = { photoPickerLauncher.launch("image/*") },
             onPickFile = { filePickerLauncher.launch("*/*") },
-            onSelectModel = { showModelSelector = true },
-            currentModelName = currentModel.displayName,
+            onPickFromFiles = { showAttachFromFiles = true },
             onDismiss = { showAttachmentSelector = false }
+        )
+    }
+
+    // Files on the agent's machine, attached by path (nothing is copied)
+    if (showAttachFromFiles) {
+        com.example.gemini.ui.files.FileExplorerDialog(
+            stateKey = "chat_attach",
+            title = "Attach files",
+            onPickFiles = { picked ->
+                showAttachFromFiles = false
+                viewModel.addExplorerFiles(picked)
+            },
+            pickFilesLabel = "Attach",
+            showClipboard = false,
+            onDismiss = { showAttachFromFiles = false }
         )
     }
 

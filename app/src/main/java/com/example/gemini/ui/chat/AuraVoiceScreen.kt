@@ -288,7 +288,7 @@ fun AuraVoiceScreen(
                         .clickable {
                             if (!callState.active || callState.phase == AgyVoiceCall.Phase.IDLE || callState.phase == AgyVoiceCall.Phase.FAILED) {
                                 // Start call immediately
-                                AgyVoiceCall.start(context, null)
+                                AgyVoiceCall.start(context, "Voice chat") { viewModel.agyBackend.prepareVoiceCall() }
                             } else {
                                 val now = SystemClock.uptimeMillis()
                                 if (now - lastTapTime < 340) {
@@ -369,9 +369,9 @@ fun AuraVoiceScreen(
     // Voice Picker & Settings Dialog
     if (showVoiceSettings) {
         AgyVoicePickerDialog(
-            initialVoice = AgyVoicePreferences.currentVoice(context),
+            initialVoice = AgyVoicePreferences.voice.value,
             onChoose = { selectedVoice ->
-                AgyVoicePreferences.setVoice(context, selectedVoice)
+                AgyVoicePreferences.setVoice(selectedVoice)
                 AgyVoiceCall.changeVoice(selectedVoice)
                 showVoiceSettings = false
             },
