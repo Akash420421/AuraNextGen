@@ -971,7 +971,7 @@ object LocalEnvironmentManager {
                                             val elapsedSec = (now - startTime) / 1000.0
                                             val speed = if (elapsedSec > 0) bytesReadTotal / elapsedSec else 0.0
                                             val speedFormatted = "${formatFileSize(speed.toLong())}/s"
-                                            val fraction = (bytesReadTotal.toFloat() / expectedTotal.toFloat()).coerceIn(0.05f, 0.95f)
+                                            val fraction = (bytesReadTotal.toFloat() / expectedTotal.toFloat()).coerceIn(0.01f, 1.0f)
 
                                             _installerState.value = LocalInstallerState.Downloading(
                                                 bytesDownloaded = bytesReadTotal,
@@ -1070,7 +1070,7 @@ object LocalEnvironmentManager {
                                                 val elapsedSec = (now - startTime) / 1000.0
                                                 val speed = if (elapsedSec > 0) bytesReadTotal / elapsedSec else 0.0
                                                 val speedFormatted = "${formatFileSize(speed.toLong())}/s"
-                                                val fraction = (bytesReadTotal.toFloat() / expectedTotal.toFloat()).coerceIn(0.05f, 0.95f)
+                                                val fraction = (bytesReadTotal.toFloat() / expectedTotal.toFloat()).coerceIn(0.01f, 1.0f)
 
                                                 _installerState.value = LocalInstallerState.Downloading(
                                                     bytesDownloaded = bytesReadTotal,
@@ -1161,7 +1161,7 @@ object LocalEnvironmentManager {
                                             val elapsedSec = (now - startTime) / 1000.0
                                             val speed = if (elapsedSec > 0) bytesReadTotal / elapsedSec else 0.0
                                             val speedFormatted = "${formatFileSize(speed.toLong())}/s"
-                                            val fraction = (bytesReadTotal.toFloat() / expectedTotal.toFloat()).coerceIn(0.05f, 0.95f)
+                                            val fraction = (bytesReadTotal.toFloat() / expectedTotal.toFloat()).coerceIn(0.01f, 1.0f)
 
                                             _installerState.value = LocalInstallerState.Downloading(
                                                 bytesDownloaded = bytesReadTotal,
@@ -1362,7 +1362,7 @@ object LocalEnvironmentManager {
             if (isDebsOnlyArchive) {
                 log("Unpacking DEB packages from archive into ${prefixDir.absolutePath}...")
                 extractDebsArchive(archiveToExtract, prefixDir, appContext) { count, total, pkgName ->
-                    val fraction = (count.toFloat() / total.toFloat()).coerceIn(0.05f, 0.95f)
+                    val fraction = (count.toFloat() / total.toFloat()).coerceIn(0.01f, 1.0f)
                     _installerState.value = LocalInstallerState.Extracting(
                         extractedFilesCount = count,
                         totalFilesEstimate = total,
@@ -1617,7 +1617,7 @@ object LocalEnvironmentManager {
 
                         extractedCount++
                         if (extractedCount % 20 == 0 || extractedCount == totalEntries) {
-                            val fraction = (extractedCount.toFloat() / totalEntries.toFloat()).coerceIn(0.05f, 0.95f)
+                            val fraction = (extractedCount.toFloat() / totalEntries.toFloat()).coerceIn(0.01f, 1.0f)
                             _installerState.value = LocalInstallerState.Extracting(
                                 extractedFilesCount = extractedCount,
                                 totalFilesEstimate = totalEntries,

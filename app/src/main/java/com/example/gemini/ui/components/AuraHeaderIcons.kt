@@ -80,21 +80,41 @@ fun NewChatIcon(
             join = StrokeJoin.Round
         )
 
+        val r = 4.dp.toPx()
+
         // 1. Back chat bubble path (offset to top-right)
         val backBubblePath = Path().apply {
-            addRoundRect(
-                RoundRect(
-                    left = 9.dp.toPx(),
-                    top = 3.dp.toPx(),
-                    right = 23.dp.toPx(),
-                    bottom = 15.dp.toPx(),
-                    cornerRadius = CornerRadius(4.5.dp.toPx(), 4.5.dp.toPx())
-                )
+            val left = 8.5.dp.toPx()
+            val top = 3.dp.toPx()
+            val right = 23.5.dp.toPx()
+            val bottom = 15.dp.toPx()
+
+            moveTo(left + r, top)
+            lineTo(right - r, top)
+            arcTo(
+                androidx.compose.ui.geometry.Rect(right - 2 * r, top, right, top + 2 * r),
+                -90f,
+                90f,
+                false
             )
-            // Speech tail at bottom-right of back bubble
-            moveTo(19.5.dp.toPx(), 15.dp.toPx())
-            lineTo(22.5.dp.toPx(), 18.5.dp.toPx())
-            lineTo(21.5.dp.toPx(), 14.5.dp.toPx())
+            lineTo(right, 13.dp.toPx())
+            lineTo(23.dp.toPx(), 17.5.dp.toPx())
+            lineTo(19.dp.toPx(), bottom)
+            lineTo(left + r, bottom)
+            arcTo(
+                androidx.compose.ui.geometry.Rect(left, bottom - 2 * r, left + 2 * r, bottom),
+                90f,
+                90f,
+                false
+            )
+            lineTo(left, top + r)
+            arcTo(
+                androidx.compose.ui.geometry.Rect(left, top, left + 2 * r, top + 2 * r),
+                180f,
+                90f,
+                false
+            )
+            close()
         }
 
         // Draw back bubble stroke
@@ -104,21 +124,49 @@ fun NewChatIcon(
             style = stroke
         )
 
-        // 2. Front chat bubble path (offset to bottom-left)
+        // 2. Front chat bubble path (offset to bottom-left with speech tail smoothly integrated)
         val frontBubblePath = Path().apply {
-            addRoundRect(
-                RoundRect(
-                    left = 3.dp.toPx(),
-                    top = 7.5.dp.toPx(),
-                    right = 17.5.dp.toPx(),
-                    bottom = 19.5.dp.toPx(),
-                    cornerRadius = CornerRadius(4.5.dp.toPx(), 4.5.dp.toPx())
-                )
+            val left = 2.5.dp.toPx()
+            val top = 7.5.dp.toPx()
+            val right = 17.5.dp.toPx()
+            val bottom = 19.5.dp.toPx()
+
+            moveTo(left + r, top)
+            lineTo(right - r, top)
+            arcTo(
+                androidx.compose.ui.geometry.Rect(right - 2 * r, top, right, top + 2 * r),
+                -90f,
+                90f,
+                false
             )
-            // Speech tail at bottom-left of front bubble
-            moveTo(6.5.dp.toPx(), 19.5.dp.toPx())
-            lineTo(3.5.dp.toPx(), 23.dp.toPx())
-            lineTo(9.5.dp.toPx(), 19.5.dp.toPx())
+            lineTo(right, bottom - r)
+            arcTo(
+                androidx.compose.ui.geometry.Rect(right - 2 * r, bottom - 2 * r, right, bottom),
+                0f,
+                90f,
+                false
+            )
+            // Bottom edge leading to tail
+            lineTo(10.dp.toPx(), bottom)
+            // Integrated speech tail
+            lineTo(3.5.dp.toPx(), 23.5.dp.toPx())
+            lineTo(6.5.dp.toPx(), bottom)
+            // Remainder of bottom edge
+            lineTo(left + r, bottom)
+            arcTo(
+                androidx.compose.ui.geometry.Rect(left, bottom - 2 * r, left + 2 * r, bottom),
+                90f,
+                90f,
+                false
+            )
+            lineTo(left, top + r)
+            arcTo(
+                androidx.compose.ui.geometry.Rect(left, top, left + 2 * r, top + 2 * r),
+                180f,
+                90f,
+                false
+            )
+            close()
         }
 
         // Fill front bubble with background color to cleanly mask overlapping back bubble lines
@@ -136,7 +184,7 @@ fun NewChatIcon(
         )
 
         // 3. Clean '+' symbol centered inside the front chat bubble
-        val cx = 10.25.dp.toPx()
+        val cx = 10.dp.toPx()
         val cy = 13.5.dp.toPx()
         val arm = 2.8.dp.toPx()
 

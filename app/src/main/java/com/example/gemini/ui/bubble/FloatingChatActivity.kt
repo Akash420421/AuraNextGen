@@ -118,11 +118,6 @@ fun FloatingChatWindow(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Transparent)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = { onMinimize() }
-            )
             .statusBarsPadding()
             .imePadding()
     ) {

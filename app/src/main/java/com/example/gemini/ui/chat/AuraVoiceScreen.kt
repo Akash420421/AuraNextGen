@@ -110,33 +110,34 @@ fun AuraVoiceScreen(
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         // --- Top Bar (Centered AURA AI Header with 48dp Touch Targets) ---
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 8.dp)
         ) {
             // Left: Hamburger Menu Icon (48dp Touch Area)
             Surface(
                 onClick = onOpenDrawer,
                 shape = CircleShape,
                 color = Color.Transparent,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier
+                    .size(48.dp)
+                    .align(Alignment.CenterStart)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     StaggeredMenuIcon(tint = Color(0xFF111827))
                 }
             }
 
-            // Center: App Title (Perfect Center Alignment)
+            // Center: App Title (Guaranteed Absolute Center Alignment)
             Text(
                 text = "AURA AI",
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF111827),
-                letterSpacing = (-0.2).sp
+                letterSpacing = (-0.2).sp,
+                modifier = Modifier.align(Alignment.Center)
             )
 
             // Right: Double Chat Bubble + Plus New Chat Icon (48dp Touch Area)
@@ -144,7 +145,9 @@ fun AuraVoiceScreen(
                 onClick = onNewChat,
                 shape = CircleShape,
                 color = Color.Transparent,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier
+                    .size(48.dp)
+                    .align(Alignment.CenterEnd)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     NewChatIcon(tint = Color(0xFF111827))

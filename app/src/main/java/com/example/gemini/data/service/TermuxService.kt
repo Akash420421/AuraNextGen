@@ -236,7 +236,6 @@ open class TermuxService : Service(), LifecycleOwner, ViewModelStoreOwner, Saved
             .setPriority(priority)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Exit", exitPendingIntent)
             .addAction(wakeActionIcon, wakeActionTitle, wakePendingIntent)
-            .addAction(android.R.drawable.ic_menu_view, "Float", floatPendingIntent)
             .build()
     }
 

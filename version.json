@@ -1,21 +1,17 @@
 {
-  "version_code": 130,
-  "version_name": "1.2.7",
+  "version_code": 131,
+  "version_name": "1.2.8",
   "min_supported_version_code": 1,
   "changelog": [
-    "Fix: Removed intrusive TelemetryDeck 'Unofficial build' warning toast",
-    "Fix: Resolved auto-back and translucent activity finish hijack on startup and authentication",
-    "Fix: Enabled Android 14 OnBackInvokedCallback predictive back dispatcher",
-    "Fix: Centralized updater URL to AuraNextGen repository",
-    "Antigravity live voice calling integration with time-based dynamic greeting and real-time audio reactivity",
-    "Single-tap mic mute (background call persistence) and double-tap end call gestures on Tap to Start",
-    "Redesigned top navigation header with clean 3-line hamburger menu and overlapping double chat bubble with plus icon",
-    "Voice Mode Setting button with natural voice picker (Arlo, Fola, Cleo, etc.) and audio preview",
-    "Streamed large file upload ('From Files') support without memory pressure",
+    "Fix: Resolved Floating Window auto-close/auto-back on launch; removed noHistory and accidental outside touch dismiss",
+    "Fix: Removed accidental 'Float' action from foreground service notification",
+    "Fix: Rootfs / Bootstrap download progress now smoothly updates from 1% to 100% without stalling at 95%",
+    "Fix: Top header mathematically centered with exact matching Hamburger Menu and Overlapping Double Chat Bubble (+) icons",
+    "Tap to Start: Single tap toggles mic mute (call persists in background); double tap instantly ends call",
+    "Antigravity live voice calling integration with dynamic greeting and real-time audio reactivity",
+    "Voice Mode Setting button with natural voice picker and audio preview",
     "New Codex coding agent integration with full MCP support",
-    "On-device Android development support for Compose, Flutter, and React Native",
-    "Reverse Engineering Anything (REA) tools and Google Cloud agents integration",
-    "32-bit (armeabi-v7a) device compatibility"
+    "Streamed large file upload support without memory pressure"
   ],
   "is_critical": false
 }
