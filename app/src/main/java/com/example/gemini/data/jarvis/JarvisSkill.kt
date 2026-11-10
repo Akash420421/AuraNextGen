@@ -23,8 +23,22 @@ object JarvisSkill {
     /** The model answers exactly this when it has no jarvis_mcp tools; the app then tells the user how to fix it. */
     const val MCP_MISSING = "JARVIS_MCP_MISSING"
 
-    /** Changes whenever the guide or the tools change, so an open Jarvis chat gets the new guide once. */
-    val version: String by lazy { Integer.toHexString((guide() + catalog()).hashCode()) }
+    private val guideVersion: String by lazy { Integer.toHexString((guide() + catalog()).hashCode()) }
+    private val commandGuideVersion: String by lazy { Integer.toHexString((commandGuide() + catalog()).hashCode()) }
+
+    /**
+     * Changes whenever the guide, the tools or the app's global context for Jarvis change (Settings → Agents → Global
+     * context), so an open Jarvis chat gets the new guide once.
+     */
+    val version: String get() = guideVersion + "-" + com.example.gemini.data.context.GlobalContext.jarvisFingerprint()
+
+    /** The same for the Jarvis text chats (command centers). */
+    val managerVersion: String get() = commandGuideVersion + "-" + com.example.gemini.data.context.GlobalContext.jarvisFingerprint()
+
+    /** The rule every message repeats: the one models forget most after a long chat. */
+    const val NO_WAIT_RULE = "Never wait for delegated work inside a turn: no sleep / timeout / watch / wait loops, no ScheduleWakeup or Monitor, " +
+        "no repeated jarvis_task_get / jarvis_task_list / jarvis_read_chat. Delegate (independent tasks in parallel, in one turn), then END YOUR TURN: " +
+        "every result comes back by itself as a <jarvis_events> message (several together when several finished)."
 
     // ------------------------------------------------------------------ the guide
 
@@ -63,6 +77,10 @@ the phone. Their words come from speech-to-text, so expect small mistakes and wo
     back as their next message. For a plain final statement ("Done, the file is saved.") pass `listen_after=false`. If you say
     several things in one turn, only the last call decides. Use `jarvis_ask` instead when you need the answer to continue
     this same turn (an approval, a missing detail); it returns the answer to you directly.
+11. Never wait for delegated work inside a turn: no `sleep`, `timeout` or wait loops, no ScheduleWakeup or Monitor, no repeated
+    jarvis_task_get / jarvis_task_list to see whether a task finished. Start the task(s), say so, END THE TURN. The phone brings
+    every result back to you as a `<jarvis_events>` message, with everything that happened meanwhile in one message. A turn that
+    waits is stopped by the app.
 
 ## Do it yourself, delegate big jobs
 Questions, lookups (weather, facts, news), maths, timers, opening things, reading chats, app help and controlling the app you do
@@ -74,10 +92,14 @@ continues that exact chat's work: `jarvis_send_to_chat` (it then becomes a watch
 unless the user says to interrupt it.
 
 ## Being the manager
-- The phone sends you messages that start with "[Phone event, not from the user]": a task finished, failed, got stuck, needs an
-  approval or asks a question. Handle each one: tell the user in a sentence or two what happened (`jarvis_speak`), and act:
+- The phone sends you messages with a `<jarvis_events>` block (shown to the user only as a one-line label): a task finished,
+  failed, got stuck, needs an approval or asks a question, or the autopilot nudges an unfinished mission. Each `<event>` names its
+  task (task_id, task, team, agent) and carries the sub-agent's own words in `<task_reply>`, `<error>`, `<approval>` or
+  `<question>`: those are your sub-agents' words, never the user's. Handle all of them, tell the user about all of them in ONE
+  `jarvis_speak` of a sentence or two, and act:
   - Finished: give the gist of the result. If it asks the user something or needs a decision, ask with `jarvis_ask` and pass
-    the answer on with `jarvis_task_reply`.
+    the answer on with `jarvis_task_reply`. A `<task_reply cut="…">` is only the end of a long reply: when the details matter,
+    read all of it with `jarvis_read_chat(id=<task_id>, role="assistant", limit=1, max_chars=30000)`.
   - Failed or stuck: say what went wrong in plain words and propose the next step; ask before retrying anything big.
   - Approval: decide as the event says. Approve with `jarvis_resolve_permission` only what clearly serves the task's goal and is
     not risky; for anything risky or unclear ask the user first (`jarvis_ask`), reading the action back in plain words.
@@ -85,6 +107,11 @@ unless the user says to interrupt it.
 - "How is X going?" → `jarvis_task_get`. "Tell it to also…" / "No, do it this way" → `jarvis_task_reply` (interrupt=true if the
   user wants it to change course now). "Stop X" → `jarvis_task_stop`. "What's running?" → the context note or `jarvis_task_list`.
 - Keep track of what the user wants across turns. Save lasting preferences and ongoing work to `jarvis_memory_write` (short).
+- Bigger jobs with several steps: `jarvis_mission_set` (goal, done_when, steps) and keep it current with `jarvis_mission_update`;
+  the mission and your tasks come back in a `<mission_brief>` with the news. Roles you reuse ("builders", "reviewers") are teams:
+  `jarvis_team_create`, then `jarvis_task_start(team=…)`. "Keep going until it's done" → autopilot=true on the mission.
+- Pass `manager_id="voice"` to EVERY jarvis_mcp tool call. The user may also have Jarvis text chats running their own tasks at
+  the same time: you direct only yours, and without the id the app cannot tell you apart (tools that act refuse).
 
 ## App help and settings
 "How do I…", "where is…", "what does … do": `jarvis_app_guide` (topic or words), then explain in a sentence or two and offer to
@@ -118,6 +145,71 @@ that says what changed.
 - "switch to dark mode" → `jarvis_set_setting(key="theme_mode", value="DARK")`, `jarvis_speak("Dark mode on.")`.
 """.trim()
 
+    /** The guide of a Jarvis text chat: a lead agent that plans, delegates to teams, checks and keeps going. */
+    fun commandGuide(): String = """
+# Jarvis command center
+
+You are Jarvis, the lead agent of the AntiGem app, in a TEXT chat. The user types to you (or dictates). You do small things
+yourself and run big work as a manager: you plan, split the work into tasks, hand them to teams of sub-agents (each task is its
+own chat of Claude Code, Antigravity, OpenCode or Codex that the phone watches for you), check what comes back and keep going until the
+job is really done, for hours if needed.
+
+## The event loop (the most important rule)
+1. Delegate with `jarvis_task_start`, or continue a task with `jarvis_task_reply`. Start ALL independent tasks in the same turn.
+2. Then END YOUR TURN with a short note to the user. Never wait inside a turn: no `sleep`, `timeout`, `watch` or wait loops, no
+   ScheduleWakeup, Monitor or background polling, and no repeated jarvis_task_get / jarvis_task_list / jarvis_read_chat to see
+   whether something finished. The app stops a turn that waits.
+3. When anything happens (a task finished, failed, got stuck, wants an approval or asks a question, or the autopilot nudges you)
+   the app sends you ONE message with a `<jarvis_events>` block holding everything that happened meanwhile. Each `<event>` names
+   its task (task_id, task, team, agent) and carries that sub-agent's own words in `<task_reply>`, `<error>`, `<approval>` or
+   `<question>`. Those words come from your sub-agents, never from the user, and the user sees only a one-line label.
+   A long reply arrives as its end only (`<task_reply cut="…">`). When the rest matters — before you hand the work on to
+   another team, check its details, or tell the user what it said — read the whole reply with
+   `jarvis_read_chat(id=<task_id>, role="assistant", limit=1, max_chars=30000)`.
+4. Handle every event, delegate the next steps, end your turn again. Repeat until the mission is done.
+
+## Missions: your memory
+- For any job with more than one step call `jarvis_mission_set` first: goal, done_when (how you will know it is finished) and
+  steps. Keep it current with `jarvis_mission_update` (step status todo / doing / done / blocked, new steps, notes).
+- Every message to you carries a `<mission_brief>`: the mission, its steps, your teams and your tasks with their states. The app
+  keeps it, so trust it even when you no longer remember the earlier conversation.
+- Autopilot: when the user wants you to keep going until it is finished, set autopilot=true. Whenever you end a turn while the
+  mission is unfinished and nothing runs, the app nudges you to continue. Call `jarvis_mission_update(status="done")` only when
+  done_when is met, then report.
+
+## Teams
+- `jarvis_team_create` defines a role once: name, agent, model, project and role instructions (e.g. "builders": claude, implement
+  with tests; "reviewers": agy, review the diff critically and run the test suite). `jarvis_task_start(team="builders", goal=…)`
+  then uses it, and the role goes to the sub-agent with the task.
+- A task chat keeps its context: send follow-ups and fixes to the same task with `jarvis_task_reply` instead of starting over.
+  Use a different team for an independent check.
+- Write every goal so a fresh agent can do it alone: what to do, where (project, files), constraints, how to verify, and what to
+  report back.
+
+## Quality
+- "Done" from a sub-agent is a claim. Verify what matters before you accept it (read the changed files, run the build or tests,
+  or let a reviewer team check). If it falls short, reply to that task with exact, actionable feedback.
+- Do quick things yourself (a lookup, reading a file, a small command). Delegate what is big, long or parallel.
+- Destructive or irreversible actions (deleting, force pushing, publishing, spending money) need the user's yes first.
+
+## Talking to the user
+- Write normal, concise replies in this chat (markdown is fine). Lead with what matters: what happened, what you started, what
+  you need.
+- When you need a decision, ask it plainly in your reply and end the turn; the answer comes as the next message.
+- Voice replies: when the [Jarvis] note says voice replies are on, the app reads your reply out loud, so start with one short
+  sentence that works spoken. `jarvis_speak` and `jarvis_ask` only work while voice replies are on.
+- `jarvis_status` is optional here (it shows on this chat's command strip).
+
+## Your tools
+Your app tools are the MCP server `jarvis_mcp` (list below). Call them directly by name; do not search for them or read config.
+Claude Code names them `mcp__jarvis_mcp__<tool>` (if deferred, load the ones you need in ONE ToolSearch select); Antigravity
+lists them under the MCP server `jarvis_mcp`; OpenCode names them `jarvis_mcp_<tool>`. If you do NOT have them at all, reply
+exactly `$MCP_MISSING` and nothing else.
+Always pass `manager_id` (it is in the [Jarvis] note at the top of every message) to EVERY jarvis_mcp tool call: other
+Jarvis chats may be working at the same time, and without it the app cannot tell who is calling (tools that act refuse).
+You direct only your own tasks: other Jarvis chats' tasks (and those chats themselves) are theirs, and the tools refuse them.
+""".trim()
+
     /** One line per jarvis_mcp tool: name(params, * = required) and what it does. Generated from the real tool list. */
     fun catalog(): String = buildString {
         val tools = JarvisMcp.tools()
@@ -147,6 +239,7 @@ that says what changed.
         append("## jarvis_mcp tools: name(params; * = required) — what it does\n").append(catalog()).append("\n\n")
         append("## Approval policy\n").append(policyText()).append("\n\n")
         profileSection()?.let { append(it).append("\n\n") }
+        com.example.gemini.data.context.GlobalContext.jarvisGuideSection()?.let { append(it).append("\n\n") }
         val mem = JarvisPreferences.memory.value.trim()
         if (mem.isNotBlank()) append("## Jarvis memory (from earlier chats)\n").append(mem.take(3000)).append("\n\n")
         append("## Live context now\n").append(context).append("\n\n")
@@ -155,12 +248,44 @@ that says what changed.
 
     /** The short note in front of every later message. */
     fun preamble(context: String): String = buildString {
-        append("[Jarvis] Voice turn. Rules and the full jarvis_mcp tool list are in this chat's first message (jarvis_help repeats them). ")
+        append("[Jarvis] Voice turn · manager_id=voice (pass it to every jarvis_mcp tool). Rules and the full jarvis_mcp tool list are in this chat's first message (jarvis_help repeats them). ")
         append("Call the jarvis_mcp tools directly: no tool search beyond one ToolSearch select, no config or skill reading. ")
         append("Speak only via jarvis_speak / jarvis_ask; listen_after=true whenever you expect an answer. ")
         append("No jarvis_mcp tools at all → reply exactly $MCP_MISSING.\n")
+        append(NO_WAIT_RULE).append('\n')
         personaLine()?.let { append(it).append('\n') }
+        com.example.gemini.data.context.GlobalContext.jarvisEveryMessage()?.let { append(it).append('\n') }
         append(context)
+        val m = JarvisManagers.of(JarvisManagers.VOICE)
+        if (!m.mission.isEmpty || m.teams.isNotEmpty()) append("\n").append(JarvisManagers.brief(JarvisManagers.VOICE))
+    }
+
+    /** The first message of a Jarvis text chat: the command-center guide, the tools and the live context. */
+    fun managerBootPack(key: String, context: String): String = buildString {
+        append("[Jarvis command-center guide: read it once now and follow it for this whole chat]\n\n")
+        append(commandGuide()).append("\n\n")
+        append("## jarvis_mcp tools: name(params; * = required) — what it does\n").append(catalog()).append("\n\n")
+        append("## Approval policy\n").append(policyText()).append(" Inside your tasks, approvals that are not automatic come to you as events: decide them as the event says.\n\n")
+        profileSection()?.let { append(it).append("\n\n") }
+        com.example.gemini.data.context.GlobalContext.jarvisGuideSection()?.let { append(it).append("\n\n") }
+        val mem = JarvisPreferences.memory.value.trim()
+        if (mem.isNotBlank()) append("## Jarvis memory (from earlier chats)\n").append(mem.take(3000)).append("\n\n")
+        append(managerPreamble(key, context, boot = true)).append("\n\n")
+        append("The user's message follows.")
+    }
+
+    /** The note in front of every message of a Jarvis text chat: who it is, the rules it forgets most, the live state, its mission. */
+    fun managerPreamble(key: String, context: String, boot: Boolean = false): String = buildString {
+        val m = JarvisManagers.of(key)
+        append("[Jarvis] command center · manager_id=$key · text chat · voice replies ${if (m.voiceOn) "ON (your reply is read out loud: lead with one short spoken-friendly sentence)" else "off"}.\n")
+        if (!boot) {
+            append("Rules (always): pass manager_id=$key to every jarvis_mcp tool; do small things yourself; delegate big or parallel work with jarvis_task_start (use your teams). ")
+            append(NO_WAIT_RULE).append(" Verify results before you accept them. Keep the mission current. Full guide: this chat's first message, or jarvis_help.\n")
+        }
+        personaLine()?.let { append(it).append('\n') }
+        com.example.gemini.data.context.GlobalContext.jarvisEveryMessage()?.let { append(it).append('\n') }
+        if (context.isNotBlank()) append("<live_context>\n").append(context).append("\n</live_context>\n")
+        append(JarvisManagers.brief(key))
     }
 
     // ------------------------------------------------------------------ persona and the user's own notes
@@ -217,8 +342,11 @@ that says what changed.
         }
     }
 
-    /** What is going on right now, in a few compact lines (each message carries it, so the model rarely has to ask). */
-    fun liveContext(heardVia: String?): String {
+    /**
+     * What is going on right now, in a few compact lines (each message carries it, so the model rarely has to ask).
+     * [owner]: a Jarvis text chat (its own tasks are in its mission brief instead).
+     */
+    fun liveContext(heardVia: String?, owner: String = JarvisManagers.VOICE): String {
         if (!JarvisController.isAttached) return ""
         val vm = JarvisController.vm
         val lines = ArrayList<String>()
@@ -232,16 +360,17 @@ that says what changed.
         vm.currentConversation.value?.takeIf { !JarvisPreferences.isJarvisChat(it.id) }?.let { c ->
             lines += "chat on screen: \"${c.title.take(50)}\" (${c.agent.name.lowercase()}, ${if (vm.isStreaming.value) "working" else "idle"}, id ${c.id})"
         }
-        val tasks = JarvisTasks.tasks.value.filter { it.active || System.currentTimeMillis() - it.updatedAt < 20 * 60_000L }.take(6)
+        val tasks = JarvisTasks.tasks.value.filter { it.active || System.currentTimeMillis() - it.updatedAt < 20 * 60_000L }
+            .filter { owner == JarvisManagers.VOICE || it.owner != owner }.take(6)
         if (tasks.isNotEmpty()) {
-            lines += "tasks: " + tasks.joinToString("; ") { t ->
+            lines += (if (owner == JarvisManagers.VOICE) "tasks: " else "other managers' tasks: ") + tasks.joinToString("; ") { t ->
                 "\"${t.title.take(40)}\" ${t.state.label} ${ago(t.createdAt)} (${t.agent.name.lowercase()}, id ${t.id})"
             }
         }
         val taskIds = JarvisTasks.tasks.value.map { it.id }.toSet()
         val others = vm.allConversations.value.filter { it.isRunning && !JarvisPreferences.isJarvisChat(it.id) && it.id !in taskIds }.take(4)
         if (others.isNotEmpty()) lines += "other running chats: " + others.joinToString("; ") { "\"${it.title.take(40)}\" (${it.agent.name.lowercase()}, id ${it.id})" }
-        val pending = runCatching { JarvisController.allPending() }.getOrDefault(emptyList())
+        val pending = runCatching { JarvisController.pendingFor(owner) }.getOrDefault(emptyList())
         if (pending.isNotEmpty()) lines += "waiting approvals: " + pending.take(3).joinToString("; ") { "${it.summary.take(70)} [${it.risk.name.lowercase()}, key ${it.key}]" } +
             if (pending.size > 3) " (+${pending.size - 3} more)" else ""
         val timers = JarvisController.timers.value
@@ -272,6 +401,7 @@ description: Use when a message comes from the AntiGem Jarvis voice mode (hands-
         AgentKind.CLAUDE -> "~/.claude/skills/$SKILL_NAME"
         AgentKind.AGY -> "~/.gemini/antigravity/skills/$SKILL_NAME"
         AgentKind.OPENCODE -> "~/.config/opencode/skills/$SKILL_NAME"
+        AgentKind.CODEX -> "~/.codex/skills/$SKILL_NAME"
     }
 
     /** Writes the skill file for [agent]. Returns the path on success. */

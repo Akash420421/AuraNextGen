@@ -59,7 +59,11 @@ data class ExplorerStat(
     val executable: Boolean,
     val files: Int,
     val dirs: Int,
-    val partial: Boolean
+    val partial: Boolean,
+    /** Files: "text", "image" or "binary", judged from the first bytes by the bridge. Blank from older bridges. */
+    val category: String = "",
+    /** Files: the type read from the content, not the name. Blank from older bridges. */
+    val sniffedMime: String = ""
 )
 
 data class ArchiveEntry(val name: String, val size: Long, val isDir: Boolean)
@@ -185,7 +189,8 @@ object FileExplorerApi {
                 modTime = o.optLong("modTime"), mode = o.optString("mode"), modeOctal = o.optString("modeOctal"),
                 symlinkTarget = o.optString("symlinkTarget"), mime = o.optString("mime"), readable = o.optBoolean("readable"),
                 writable = o.optBoolean("writable"), executable = o.optBoolean("executable"), files = o.optInt("files"),
-                dirs = o.optInt("dirs"), partial = o.optBoolean("partial")
+                dirs = o.optInt("dirs"), partial = o.optBoolean("partial"),
+                category = o.optString("category"), sniffedMime = o.optString("sniffedMime")
             )
         )
     }
@@ -250,7 +255,8 @@ object FileExplorerApi {
 
     /**
      * Streams [input] into [targetPath] on the bridge machine. [onProgress] gets bytes sent so far.
-     * conflict: "rename" (default, keeps both), "overwrite" or "fail".
+     * conflict: "rename" (default, keeps both), "overwrite" or "fail". Cancelling the calling coroutine stops the
+     * transfer; the bridge then removes the partly written file.
      */
     suspend fun upload(
         input: () -> InputStream,
@@ -259,6 +265,7 @@ object FileExplorerApi {
         conflict: String = "rename",
         onProgress: (Long) -> Unit = {}
     ): FsResult = withContext(Dispatchers.IO) {
+        val job = coroutineContext[kotlinx.coroutines.Job]
         val body = object : RequestBody() {
             override fun contentType() = OCTET
             override fun contentLength() = if (length > 0) length else -1
@@ -267,6 +274,7 @@ object FileExplorerApi {
                     val src = stream.source()
                     var sent = 0L
                     while (true) {
+                        if (job?.isActive == false) throw java.io.IOException("Upload cancelled")
                         val n = src.read(sink.buffer, 64 * 1024)
                         if (n == -1L) break
                         sent += n

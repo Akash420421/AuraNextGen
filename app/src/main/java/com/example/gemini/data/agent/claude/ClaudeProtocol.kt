@@ -90,7 +90,10 @@ data class ClaudeControlRequestBody(
     val cancel_queued: Boolean? = null,
     val settings: JsonObject? = null,
     val user_message_id: String? = null,
-    val dry_run: Boolean? = null
+    val dry_run: Boolean? = null,
+    /** `generate_session_title`: what the chat is about, and whether to save the title in the chat's transcript. */
+    val description: String? = null,
+    val persist: Boolean? = null
 )
 
 @Serializable
@@ -300,7 +303,8 @@ data class ClaudeSessionSummary(
     val created_at: Long = 0,
     val updated_at: Long = 0,
     val live: Boolean = false,
-    val busy: Boolean = false
+    val busy: Boolean = false,
+    val archived: Boolean = false
 )
 
 @Serializable
@@ -398,6 +402,9 @@ data class BridgeSimpleResponse(
 @Serializable
 data class ClaudeTitleRequest(val title: String)
 
+@Serializable
+data class ClaudeArchiveRequest(val archived: Boolean)
+
 /** Edit an earlier prompt in place: the chat is cut right before the prompt [before] (its uuid). */
 @Serializable
 data class ClaudeRewindRequest(val before: String)
@@ -428,13 +435,35 @@ data class ClaudeLimitWindow(
 )
 
 @Serializable
+data class ClaudeLimitScopeModel(
+    val id: String? = null,
+    val display_name: String? = null
+)
+
+/** What a limit row covers; null / no model = the whole plan. */
+@Serializable
+data class ClaudeLimitScope(
+    val model: ClaudeLimitScopeModel? = null
+)
+
+/** One `limits[]` row. kind: "session" (5h), "weekly_all", "weekly_scoped" (one model's own weekly share, e.g. Fable). */
+@Serializable
 data class ClaudeLimitEntry(
     val kind: String = "",
     val group: String = "",
     val percent: Double = 0.0,
     val severity: String = "normal",
     val resets_at: String? = null,
+    val scope: ClaudeLimitScope? = null,
     val is_active: Boolean = false
+)
+
+/** `model_scoped[]`: a model's own weekly limit (utilization 0-100). */
+@Serializable
+data class ClaudeModelScopedLimit(
+    val display_name: String? = null,
+    val utilization: Double? = null,
+    val resets_at: String? = null
 )
 
 @Serializable
@@ -443,7 +472,8 @@ data class ClaudeRateLimits(
     val seven_day: ClaudeLimitWindow? = null,
     val seven_day_opus: ClaudeLimitWindow? = null,
     val seven_day_sonnet: ClaudeLimitWindow? = null,
-    val limits: List<ClaudeLimitEntry> = emptyList()
+    val limits: List<ClaudeLimitEntry> = emptyList(),
+    val model_scoped: List<ClaudeModelScopedLimit> = emptyList()
 )
 
 @Serializable

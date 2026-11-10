@@ -55,6 +55,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         instanceRef = java.lang.ref.WeakReference(this)
+        com.example.gemini.data.context.GlobalContext.init(this)
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { com.example.gemini.data.files.CacheJanitor.trimAll(applicationContext, force = true) }
         com.example.gemini.data.jarvis.JarvisPreferences.init(this)
         com.example.gemini.data.remote.inspector.NetworkInspectorManager.isEnabled =
             chatViewModel.authPreferences.getNetworkInspectorEnabledSync()
@@ -497,6 +499,9 @@ class MainActivity : ComponentActivity() {
 
                                 // Floating Video Player Overlay for active background/in-app playback controls
                                 com.example.gemini.ui.components.FloatingVideoPlayerOverlay()
+
+                                // Full-screen video player host (new video player)
+                                com.example.gemini.ui.components.FullscreenVideoHost()
 
                                 // Jarvis: voice orb (only when Jarvis is turned on in Settings)
                                 com.example.gemini.ui.jarvis.JarvisOverlay()

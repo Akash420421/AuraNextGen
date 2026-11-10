@@ -864,6 +864,7 @@ fun ChatHistoryDrawer(
                                 com.example.gemini.domain.model.AgentKind.AGY -> "Antigravity"
                                 com.example.gemini.domain.model.AgentKind.CLAUDE -> "Claude"
                                 com.example.gemini.domain.model.AgentKind.OPENCODE -> "OpenCode"
+                                com.example.gemini.domain.model.AgentKind.CODEX -> "Codex"
                             }
                             add(agent to label)
                         }

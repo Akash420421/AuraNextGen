@@ -294,19 +294,11 @@ class AgyMcpManager(
                             // Ensure Termux stdio binaries (npx, python3, etc.) have proper loader and PATH on Android.
                             // A server runs the MCP on its own Linux: those Termux paths would break it there.
                             if (!AuthPreferences.currentRemoteMode) {
-                                val libCandidates = listOf(
-                                    System.getenv("PREFIX")?.let { "$it/lib/libtermux-exec.so" },
-                                    "/data/data/com.aura.ai/files/usr/lib/libtermux-exec.so",
-                                    "/data/data/com.termux/files/usr/lib/libtermux-exec.so"
-                                )
-                                val termuxExec = libCandidates.firstOrNull { it != null && java.io.File(it).exists() }
-                                if (!envMap.containsKey("LD_PRELOAD") && termuxExec != null) {
-                                    envMap["LD_PRELOAD"] = termuxExec
+                                if (!envMap.containsKey("LD_PRELOAD")) {
+                                    envMap["LD_PRELOAD"] = "/data/data/com.termux/files/usr/lib/libtermux-exec.so"
                                 }
                                 if (!envMap.containsKey("PATH")) {
-                                    val homePrefix = System.getenv("HOME") ?: "/data/data/com.aura.ai/files/home"
-                                    val usrPrefix = System.getenv("PREFIX") ?: "/data/data/com.aura.ai/files/usr"
-                                    envMap["PATH"] = "$homePrefix/.local/bin:$usrPrefix/bin:/system/bin"
+                                    envMap["PATH"] = "/data/data/com.termux/files/home/.local/bin:/data/data/com.termux/files/usr/bin:/system/bin"
                                 }
                             }
                             if (envMap.isNotEmpty()) {

@@ -85,7 +85,8 @@ import com.example.gemini.data.daemon.IdeApiClient
 
 enum class SettingsSection(val title: String, val subtitle: String) {
     MAIN("Settings & Preferences", "Configure your AntiGem experience"),
-    APPEARANCE("Appearance & Theme", "Theme, dark mode, and chat font scaling"),
+    THEMES("Themes", "Light and dark mode, and the theme gallery"),
+    APPEARANCE("Appearance", "Chat text size, chat list, header icons and the app switcher"),
     SERVERS("Servers & Connectivity", "Configure AGY Hub and IDE Bridge endpoints"),
     WEBVIEW_EXTENSIONS("Custom AntiGem Plugins", "Install and manage plugins: MCP tools and skills"),
     SLASH_COMMANDS("Slash Commands", "Your own / commands and what they expand to"),
@@ -97,13 +98,18 @@ enum class SettingsSection(val title: String, val subtitle: String) {
     COMMANDS("Commands & Permissions", "Auto-run policy, sandbox mode, and tool approvals"),
     ANTIGRAVITY("Antigravity", "CLI, MCP servers, skills & plugins, commands & permissions"),
     AGY_CLI("Antigravity CLI", "agy version and install, on this device or the server"),
+    AGY_CLOUD("Cloud agents", "Antigravity chats on a Google cloud machine (Remote Agents)"),
     CLAUDE("Claude Code", "Account, models, permissions, MCP, plugins & memory"),
     /** One Claude Code page (which one: the dialog's claudePage); not a page of its own for Jarvis. */
     CLAUDE_PAGE("Claude Code", "Account, models, permissions, MCP, plugins & memory"),
     OPENCODE("OpenCode", "Server, providers, custom OpenAI-compatible endpoints & approvals"),
     /** One OpenCode page (which one: the dialog's openCodePage). */
     OPENCODE_PAGE("OpenCode", "Server, providers, endpoints, MCP & approvals"),
-    AGENTS("Agents", "Run Antigravity, Claude Code, OpenCode or several"),
+    CODEX("Codex", "Account, usage limits, permissions, MCP, server & install"),
+    /** One Codex page (which one: the dialog's codexPage). */
+    CODEX_PAGE("Codex", "Account, usage limits, permissions, MCP, server & install"),
+    AGENTS("Agents", "Run Antigravity, Claude Code, OpenCode, Codex or several"),
+    GLOBAL_CONTEXT("Global context", "What every chat is told about this app, and your own instructions"),
     JARVIS("Jarvis", "Hands-free voice control of the whole app"),
     JARVIS_AGENT("Jarvis · Agent", "Which agent and model Jarvis talks to"),
     JARVIS_PERSONALITY("Jarvis · Personality & you", "How Jarvis speaks, and what it should know about you"),
@@ -120,6 +126,9 @@ enum class SettingsSection(val title: String, val subtitle: String) {
     GITHUB("GitHub", "Sign in with the GitHub CLI, your repositories and git credentials"),
     ADB_CONNECT("ADB Connect", "Connect the terminal's adb to this phone over Wireless debugging"),
     ANDROID_AUTOMATION("Android Automation", "Let AI agents see and control this phone"),
+    REA("REA · Reverse Engineering", "Let agents analyze APKs, Flutter, React Native and native code"),
+    REA_GROUPS("REA Tool Groups", "Which REA tools each REA MCP server shows"),
+    ANDROID_DEV("Android Development", "Build Kotlin / Compose, Flutter and React Native apps on this phone"),
     TERMUX_SUPPORT("Termux Support", "Termux:API and the X11 desktop"),
     TERMUX_API("Termux:API", "How termux-api commands are handled"),
     X11_DESKTOP("X11 Desktop", "Linux desktop apps with Termux:X11"),
@@ -143,10 +152,13 @@ enum class SettingsSection(val title: String, val subtitle: String) {
 
     /** Where Back goes from this section. */
     val parent: SettingsSection get() = when (this) {
-        AGY_CLI, MCP, SKILLS_PLUGINS, COMMANDS -> ANTIGRAVITY
+        AGY_CLI, AGY_CLOUD, MCP, SKILLS_PLUGINS, COMMANDS -> ANTIGRAVITY
         CLAUDE_PAGE -> CLAUDE
         OPENCODE_PAGE -> OPENCODE
+        CODEX_PAGE -> CODEX
         TERMUX_API, X11_DESKTOP -> TERMUX_SUPPORT
+        REA_GROUPS -> REA
+        GLOBAL_CONTEXT -> AGENTS
         CHANGELOG -> ABOUT
         else -> if (jarvisPage != null) JARVIS else MAIN
     }
@@ -285,6 +297,9 @@ fun SettingsDialog(
     openCode: com.example.gemini.data.agent.opencode.OpenCodeChatBackend? = null,
     /** Opens on this OpenCode page (e.g. Server & install from an Install button). */
     initialOpenCodePage: com.example.gemini.ui.opencode.OpenCodeSettingsPage? = null,
+    codex: com.example.gemini.data.agent.codex.CodexChatBackend? = null,
+    /** Opens on this Codex page (e.g. Server & install from an Install button). */
+    initialCodexPage: com.example.gemini.ui.codex.CodexSettingsPage? = null,
     /** Opens on this page (e.g. Jarvis asked to show it); also switches to it while the dialog is open. */
     initialSection: SettingsSection? = null,
     enabledAgents: Set<com.example.gemini.domain.model.AgentKind> = setOf(com.example.gemini.domain.model.AgentKind.AGY),
@@ -303,6 +318,13 @@ fun SettingsDialog(
         if (initialOpenCodePage != null && openCode != null) {
             openCodePage = initialOpenCodePage
             currentSection = SettingsSection.OPENCODE_PAGE
+        }
+    }
+    var codexPage by remember { mutableStateOf(initialCodexPage ?: com.example.gemini.ui.codex.CodexSettingsPage.ACCOUNT) }
+    LaunchedEffect(initialCodexPage) {
+        if (initialCodexPage != null && codex != null) {
+            codexPage = initialCodexPage
+            currentSection = SettingsSection.CODEX_PAGE
         }
     }
     LaunchedEffect(initialSection) { if (initialSection != null) currentSection = initialSection }
@@ -341,9 +363,11 @@ fun SettingsDialog(
                     // a Claude Code page names itself here (it has no header of its own)
                     val isClaudePage = currentSection == SettingsSection.CLAUDE_PAGE && claude != null
                     val isOpenCodePage = currentSection == SettingsSection.OPENCODE_PAGE && openCode != null
+                    val isCodexPage = currentSection == SettingsSection.CODEX_PAGE && codex != null
                     Column {
                         Text(
-                            text = if (isClaudePage) "Claude Code · ${claudePage.title}" else if (isOpenCodePage) "OpenCode · ${openCodePage.title}" else currentSection.title,
+                            text = if (isClaudePage) "Claude Code · ${claudePage.title}" else if (isOpenCodePage) "OpenCode · ${openCodePage.title}"
+                                else if (isCodexPage) "Codex · ${codexPage.title}" else currentSection.title,
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -352,7 +376,8 @@ fun SettingsDialog(
                         )
                         if (currentSection != SettingsSection.MAIN) {
                             Text(
-                                text = if (isClaudePage) claudePage.subtitle else if (isOpenCodePage) openCodePage.subtitle else currentSection.subtitle,
+                                text = if (isClaudePage) claudePage.subtitle else if (isOpenCodePage) openCodePage.subtitle
+                                    else if (isCodexPage) codexPage.subtitle else currentSection.subtitle,
                                 fontSize = 11.5.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                                 maxLines = 1,
@@ -427,11 +452,18 @@ fun SettingsDialog(
                         enabledAgents = enabledAgents,
                         claude = claude,
                         openCode = openCode,
+                        codex = codex,
                         onNavigate = { currentSection = it }
                     )
 
-                    SettingsSection.APPEARANCE -> AppearanceSubScreen(
+                    SettingsSection.THEMES -> ThemesSubScreen(
                         themeMode = themeMode,
+                        cardBg = cardBg,
+                        cardBorder = cardBorder,
+                        onSetThemeMode = onSetThemeMode
+                    )
+
+                    SettingsSection.APPEARANCE -> AppearanceSubScreen(
                         chatFontScale = chatFontScale,
                         groupChatsByWorkspace = groupChatsByWorkspace,
                         floatingSwitcherOrientation = floatingSwitcherOrientation,
@@ -439,7 +471,6 @@ fun SettingsDialog(
                         floatingSwitcherAutoCollapseSec = floatingSwitcherAutoCollapseSec,
                         cardBg = cardBg,
                         cardBorder = cardBorder,
-                        onSetThemeMode = onSetThemeMode,
                         onSetChatFontScale = onSetChatFontScale,
                         onToggleGroupChatsByWorkspace = onToggleGroupChatsByWorkspace,
                         onSetFloatingSwitcherOrientation = onSetFloatingSwitcherOrientation,
@@ -483,7 +514,9 @@ fun SettingsDialog(
                         isCascadePluginsLoading = isCascadePluginsLoading,
                         installingCascadePluginId = installingCascadePluginId,
                         onSearchCascadePlugins = onSearchCascadePlugins,
-                        onInstallCascadePlugin = onInstallCascadePlugin
+                        onInstallCascadePlugin = onInstallCascadePlugin,
+                        onOpenRea = { currentSection = SettingsSection.REA },
+                        onOpenReaGroups = { currentSection = SettingsSection.REA_GROUPS }
                     )
 
                     SettingsSection.SKILLS_PLUGINS -> SkillsAndPluginsSubScreen(
@@ -593,8 +626,10 @@ fun SettingsDialog(
                     SettingsSection.AGENTS -> com.example.gemini.ui.agents.AgentsSettingsPage(
                         enabled = enabledAgents,
                         isApplying = isApplyingAgents,
-                        onApply = onApplyAgents
+                        onApply = onApplyAgents,
+                        onOpenGlobalContext = { currentSection = SettingsSection.GLOBAL_CONTEXT }
                     )
+                    SettingsSection.GLOBAL_CONTEXT -> GlobalContextScreen()
                     SettingsSection.JARVIS -> com.example.gemini.ui.jarvis.JarvisSettingsScreen(
                         cardBg = cardBg,
                         cardBorder = cardBorder,
@@ -621,6 +656,11 @@ fun SettingsDialog(
                     ) {
                         com.example.gemini.ui.agents.AgyCliCard()
                     }
+                    SettingsSection.AGY_CLOUD -> Column(
+                        Modifier.fillMaxSize().bouncyVerticalScroll(rememberScrollState()).padding(16.dp)
+                    ) {
+                        com.example.gemini.ui.cloud.AgyCloudSettingsCard()
+                    }
                     SettingsSection.CLAUDE -> if (claude != null) {
                         com.example.gemini.ui.claude.ClaudeSettingsGroup(claude, cardBg) { page ->
                             claudePage = page
@@ -633,11 +673,32 @@ fun SettingsDialog(
                             currentSection = SettingsSection.OPENCODE_PAGE
                         }
                     }
+                    SettingsSection.CODEX -> if (codex != null) {
+                        com.example.gemini.ui.codex.CodexSettingsGroup(codex, cardBg) { page ->
+                            codexPage = page
+                            currentSection = SettingsSection.CODEX_PAGE
+                        }
+                    }
+                    SettingsSection.CODEX_PAGE -> if (codex != null) {
+                        com.example.gemini.ui.codex.CodexSettingsScreen(
+                            codex, codexPage,
+                            onOpenRea = { currentSection = SettingsSection.REA },
+                            onOpenReaGroups = { currentSection = SettingsSection.REA_GROUPS }
+                        )
+                    }
                     SettingsSection.OPENCODE_PAGE -> if (openCode != null) {
-                        com.example.gemini.ui.opencode.OpenCodeSettingsScreen(openCode, openCodePage)
+                        com.example.gemini.ui.opencode.OpenCodeSettingsScreen(
+                            openCode, openCodePage,
+                            onOpenRea = { currentSection = SettingsSection.REA },
+                            onOpenReaGroups = { currentSection = SettingsSection.REA_GROUPS }
+                        )
                     }
                     SettingsSection.CLAUDE_PAGE -> if (claude != null) {
-                        com.example.gemini.ui.claude.ClaudeSettingsScreen(claude, claudePage) { currentSection = SettingsSection.CLAUDE }
+                        com.example.gemini.ui.claude.ClaudeSettingsScreen(
+                            claude, claudePage,
+                            onOpenRea = { currentSection = SettingsSection.REA },
+                            onOpenReaGroups = { currentSection = SettingsSection.REA_GROUPS }
+                        ) { currentSection = SettingsSection.CLAUDE }
                     }
                     SettingsSection.UTILITIES -> UtilitiesSubScreen(
                         cardBg = cardBg,
@@ -673,6 +734,24 @@ fun SettingsDialog(
                         cardBorder = cardBorder,
                         onOpenAdbConnect = { currentSection = SettingsSection.ADB_CONNECT }
                     )
+                    SettingsSection.REA -> ReaScreen(
+                        cardBg = cardBg,
+                        cardBorder = cardBorder,
+                        onOpenGroups = { currentSection = SettingsSection.REA_GROUPS },
+                        onOpenAdbConnect = { currentSection = SettingsSection.ADB_CONNECT },
+                        onOpenPlugins = { currentSection = SettingsSection.WEBVIEW_EXTENSIONS }
+                    )
+                    SettingsSection.ANDROID_DEV -> AndroidDevScreen(
+                        cardBg = cardBg,
+                        cardBorder = cardBorder,
+                        onOpenAdbConnect = { currentSection = SettingsSection.ADB_CONNECT },
+                        onOpenPlugins = { currentSection = SettingsSection.WEBVIEW_EXTENSIONS }
+                    )
+                    SettingsSection.REA_GROUPS -> ReaGroupsScreen(
+                        cardBg = cardBg,
+                        cardBorder = cardBorder,
+                        onOpenRea = { currentSection = SettingsSection.REA }
+                    )
                     SettingsSection.ABOUT -> AboutSubScreen(
                         cardBg = cardBg,
                         cardBorder = cardBorder,
@@ -706,6 +785,7 @@ private fun MainSettingsMenu(
     scrollState: androidx.compose.foundation.ScrollState,
     claude: com.example.gemini.ui.claude.ClaudeSettingsDeps? = null,
     openCode: com.example.gemini.data.agent.opencode.OpenCodeChatBackend? = null,
+    codex: com.example.gemini.data.agent.codex.CodexChatBackend? = null,
     enabledAgents: Set<com.example.gemini.domain.model.AgentKind> = setOf(com.example.gemini.domain.model.AgentKind.AGY),
     onNavigate: (SettingsSection) -> Unit
 ) {
@@ -713,11 +793,13 @@ private fun MainSettingsMenu(
     val claudeOn = com.example.gemini.domain.model.AgentKind.CLAUDE in enabledAgents
     val openCodeOn = com.example.gemini.domain.model.AgentKind.OPENCODE in enabledAgents
     val openCodeState = openCode?.state?.collectAsState()?.value
+    val codexOn = com.example.gemini.domain.model.AgentKind.CODEX in enabledAgents
+    val codexState = codex?.state?.collectAsState()?.value
     val c = com.example.gemini.theme.AppColors
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var showExitConfirmDialog by remember { mutableStateOf(false) }
     fun row(section: SettingsSection, icon: ImageVector, tint: Color, value: String? = null, valueColor: Color? = null) =
         SettingsRowItem(icon, tint, section.title, value, valueColor) { onNavigate(section) }
+
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
 
     val (serverValue, serverColor) = when {
         isServerOnline && isBridgeOnline -> "Online" to QuotaGreen
@@ -728,6 +810,8 @@ private fun MainSettingsMenu(
     val activeMcp = mcpServers.count { it.isEnabled }
     val deviceTools = rememberDeviceToolRows(onNavigate)
     val githubRow = rememberGitHubRow(onNavigate)
+    val reaRow = rememberReaRow(onNavigate)
+    val androidDevRow = rememberAndroidDevRow(onNavigate)
 
     // Claude Code's row shows the account state (signed in / plan / signed out)
     var claudeValue: String? = null
@@ -750,16 +834,26 @@ private fun MainSettingsMenu(
         cardBg = cardBg,
         groups = listOf(
             listOf(
-                row(SettingsSection.APPEARANCE, Icons.Outlined.Palette, c.accentPink, com.example.gemini.theme.ThemeManager.current.name),
+                row(SettingsSection.THEMES, Icons.Outlined.Palette, c.accentPink, com.example.gemini.theme.ThemeManager.current.name),
+                row(SettingsSection.APPEARANCE, Icons.Outlined.Tune, c.accentAlt),
                 row(SettingsSection.SERVERS, Icons.Outlined.Dns, c.info, serverValue, serverColor)
             ),
             listOfNotNull(
                 row(SettingsSection.AGENTS, Icons.Outlined.SmartToy, MaterialTheme.colorScheme.primary, when {
-                    enabledAgents.size >= 3 -> "All three"
+                    enabledAgents.size == com.example.gemini.domain.model.AgentKind.entries.size -> "All agents"
+                    enabledAgents.size >= 3 -> "${enabledAgents.size} agents"
                     enabledAgents.size == 2 -> com.example.gemini.domain.model.AgentKind.entries.filter { it in enabledAgents }
-                        .joinToString(" + ") { if (it == com.example.gemini.domain.model.AgentKind.AGY) "AGY" else if (it == com.example.gemini.domain.model.AgentKind.CLAUDE) "Claude" else "OpenCode" }
+                        .joinToString(" + ") {
+                            when (it) {
+                                com.example.gemini.domain.model.AgentKind.AGY -> "AGY"
+                                com.example.gemini.domain.model.AgentKind.CLAUDE -> "Claude"
+                                com.example.gemini.domain.model.AgentKind.OPENCODE -> "OpenCode"
+                                com.example.gemini.domain.model.AgentKind.CODEX -> "Codex"
+                            }
+                        }
                     claudeOn -> "Claude Code"
                     openCodeOn -> "OpenCode"
+                    codexOn -> "Codex"
                     else -> "Antigravity"
                 }),
                 if (agyOn) row(SettingsSection.ANTIGRAVITY, Icons.Outlined.RocketLaunch, GeminiBlue,
@@ -767,6 +861,8 @@ private fun MainSettingsMenu(
                 if (claude != null && claudeOn) row(SettingsSection.CLAUDE, Icons.Outlined.AutoAwesome, ClaudeAccent, claudeValue, claudeColor) else null,
                 if (openCode != null && openCodeOn) row(SettingsSection.OPENCODE, Icons.Outlined.Code, com.example.gemini.ui.components.OpenCodeAccent, openCodeState?.label,
                     if (openCodeState == com.example.gemini.data.agent.opencode.OpenCodeState.READY) QuotaGreen else c.warning) else null,
+                if (codex != null && codexOn) row(SettingsSection.CODEX, Icons.Outlined.Terminal, com.example.gemini.ui.components.CodexAccent, codexState?.label,
+                    if (codexState == com.example.gemini.data.agent.codex.CodexState.READY) QuotaGreen else c.warning) else null,
                 row(SettingsSection.JARVIS, Icons.Outlined.RecordVoiceOver, c.accentTeal, if (jarvisOn) "On" else "Off",
                     if (jarvisOn) QuotaGreen else null)
             ),
@@ -780,6 +876,8 @@ private fun MainSettingsMenu(
                 githubRow,
                 deviceTools.adb,
                 deviceTools.automation,
+                reaRow,
+                androidDevRow,
                 // Termux:API and X11 need the com.termux package; shown on both of its builds (and before the terminal is
                 // installed) so standalone users learn these exist: each page explains the Shared UID build they need
                 if (com.example.gemini.data.local.LocalEnvironmentManager.isTermuxPackage(LocalContext.current))
@@ -807,6 +905,7 @@ private fun MainSettingsMenu(
     )
 
     if (showExitConfirmDialog) {
+        val context = androidx.compose.ui.platform.LocalContext.current
         AlertDialog(
             onDismissRequest = { showExitConfirmDialog = false },
             icon = {
@@ -919,11 +1018,14 @@ private fun AntigravitySettingsMenu(
         cli!!.installed -> cli!!.version.ifBlank { "Installed" } to QuotaGreen
         else -> "Not installed" to c.warning
     }
+    val cloudOn by com.example.gemini.data.agent.agy.AgyCloud.enabled.collectAsState()
     SettingsRowList(
         cardBg = cardBg,
         groups = listOf(
             listOf(
-                SettingsRowItem(Icons.Outlined.Terminal, GeminiBlue, SettingsSection.AGY_CLI.title, cliValue, cliColor) { onNavigate(SettingsSection.AGY_CLI) }
+                SettingsRowItem(Icons.Outlined.Terminal, GeminiBlue, SettingsSection.AGY_CLI.title, cliValue, cliColor) { onNavigate(SettingsSection.AGY_CLI) },
+                SettingsRowItem(Icons.Outlined.Cloud, GeminiBlue, SettingsSection.AGY_CLOUD.title,
+                    if (cloudOn) "On" else "Off", if (cloudOn) QuotaGreen else null) { onNavigate(SettingsSection.AGY_CLOUD) }
             ),
             listOf(
                 SettingsRowItem(Icons.Outlined.Hub, GeminiBlue, SettingsSection.MCP.title, mcpValue, mcpColor) { onNavigate(SettingsSection.MCP) },
@@ -999,6 +1101,55 @@ private fun rememberGitHubRow(onNavigate: (SettingsSection) -> Unit): SettingsRo
     }
     return SettingsRowItem(Icons.Outlined.AccountTree, c.accentAlt, SettingsSection.GITHUB.title, value, color) {
         onNavigate(SettingsSection.GITHUB)
+    }
+}
+
+/** The REA row of the main settings page (com.termux builds only), with the setup state; null elsewhere. */
+@Composable
+private fun rememberReaRow(onNavigate: (SettingsSection) -> Unit): SettingsRowItem? {
+    val context = LocalContext.current
+    if (!com.example.gemini.data.local.LocalEnvironmentManager.isTermuxPackage(context)) return null
+    LaunchedEffect(Unit) {
+        com.example.gemini.data.rea.ReaManager.init(context)
+        com.example.gemini.data.rea.ReaManager.refresh()
+    }
+    val rea by com.example.gemini.data.rea.ReaManager.state.collectAsState()
+    val c = com.example.gemini.theme.AppColors
+    val (value, color) = when {
+        rea.busy -> "Installing…" to c.info
+        rea.usable && rea.requiredDone -> (rea.reaVersion?.let { "v$it" } ?: "Ready") to QuotaGreen
+        rea.installed.isNotEmpty() -> "Partly set up" to c.warning
+        else -> null to null
+    }
+    return SettingsRowItem(Icons.Outlined.BugReport, c.accentPink, SettingsSection.REA.title, value, color) {
+        onNavigate(SettingsSection.REA)
+    }
+}
+
+/** The Android Development row of the main settings page (com.termux builds only), with the setup state; null elsewhere. */
+@Composable
+private fun rememberAndroidDevRow(onNavigate: (SettingsSection) -> Unit): SettingsRowItem? {
+    val context = LocalContext.current
+    if (!com.example.gemini.data.local.LocalEnvironmentManager.isTermuxPackage(context)) return null
+    LaunchedEffect(Unit) {
+        com.example.gemini.data.androiddev.AndroidDevManager.init(context)
+        com.example.gemini.data.androiddev.AndroidDevManager.refresh()
+    }
+    val dev by com.example.gemini.data.androiddev.AndroidDevManager.state.collectAsState()
+    val c = com.example.gemini.theme.AppColors
+    val (value, color) = when {
+        dev.busy -> "Working…" to c.info
+        dev.anyReady -> com.example.gemini.data.androiddev.AndroidDevManager.Framework.entries.filter { dev.ready(it) }
+            .joinToString(" · ") { when (it) {
+                com.example.gemini.data.androiddev.AndroidDevManager.Framework.KOTLIN -> "Kotlin"
+                com.example.gemini.data.androiddev.AndroidDevManager.Framework.FLUTTER -> "Flutter"
+                com.example.gemini.data.androiddev.AndroidDevManager.Framework.REACT_NATIVE -> "RN"
+            } } to QuotaGreen
+        dev.installed.any { it == com.example.gemini.data.androiddev.AndroidDevManager.Component.SDK || it == com.example.gemini.data.androiddev.AndroidDevManager.Component.LAUNCHER } -> "Partly set up" to c.warning
+        else -> null to null
+    }
+    return SettingsRowItem(Icons.Outlined.Android, c.success, SettingsSection.ANDROID_DEV.title, value, color) {
+        onNavigate(SettingsSection.ANDROID_DEV)
     }
 }
 
@@ -1318,27 +1469,14 @@ private fun TermuxApiSubScreen(cardBg: Color, cardBorder: BorderStroke) {
 }
 
 // ==========================================
-// SUB-SCREEN 1: APPEARANCE & THEME
+// SUB-SCREEN: THEMES (light / dark mode, theme gallery)
 // ==========================================
 @Composable
-private fun AppearanceSubScreen(
+private fun ThemesSubScreen(
     themeMode: String,
-    chatFontScale: Float,
-    groupChatsByWorkspace: Boolean,
-    floatingSwitcherOrientation: String,
-    floatingSwitcherItems: List<String>,
-    floatingSwitcherAutoCollapseSec: Int,
     cardBg: Color,
     cardBorder: BorderStroke,
-    onSetThemeMode: (String) -> Unit,
-    onSetChatFontScale: (Float) -> Unit,
-    onToggleGroupChatsByWorkspace: (Boolean) -> Unit,
-    onSetFloatingSwitcherOrientation: (String) -> Unit,
-    onSetFloatingSwitcherItems: (List<String>) -> Unit,
-    onSetFloatingSwitcherAutoCollapseSec: (Int) -> Unit,
-    onResetFloatingSwitcherPosition: () -> Unit,
-    chatHeaderItems: List<String>,
-    onSetChatHeaderItems: (List<String>) -> Unit
+    onSetThemeMode: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -1347,23 +1485,6 @@ private fun AppearanceSubScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        val vibrateOnDone by com.example.gemini.data.agent.ChatCompletionMonitor.vibrate.collectAsState()
-        Surface(
-            shape = RoundedCornerShape(12.dp), color = cardBg,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-        ) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Vibrate when a chat finishes", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                    Text(
-                        "One light buzz when a chat stops running (its dot in the chat list goes away).",
-                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-                Switch(checked = vibrateOnDone, onCheckedChange = { com.example.gemini.data.agent.ChatCompletionMonitor.setVibrate(it) })
-            }
-        }
-
         // Theme Selector Header
         Text(
             text = "Color Theme",
@@ -1422,9 +1543,37 @@ private fun AppearanceSubScreen(
 
         // Which light theme and which dark theme (built-in and custom ones)
         ThemeGallery(cardBg = cardBg, themeMode = themeMode, onSetThemeMode = onSetThemeMode)
+    }
+}
 
-        Spacer(modifier = Modifier.height(6.dp))
-
+// ==========================================
+// SUB-SCREEN 1: APPEARANCE
+// ==========================================
+@Composable
+private fun AppearanceSubScreen(
+    chatFontScale: Float,
+    groupChatsByWorkspace: Boolean,
+    floatingSwitcherOrientation: String,
+    floatingSwitcherItems: List<String>,
+    floatingSwitcherAutoCollapseSec: Int,
+    cardBg: Color,
+    cardBorder: BorderStroke,
+    onSetChatFontScale: (Float) -> Unit,
+    onToggleGroupChatsByWorkspace: (Boolean) -> Unit,
+    onSetFloatingSwitcherOrientation: (String) -> Unit,
+    onSetFloatingSwitcherItems: (List<String>) -> Unit,
+    onSetFloatingSwitcherAutoCollapseSec: (Int) -> Unit,
+    onResetFloatingSwitcherPosition: () -> Unit,
+    chatHeaderItems: List<String>,
+    onSetChatHeaderItems: (List<String>) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .bouncyVerticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         // Font Scaling Section
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1999,15 +2148,12 @@ private fun AppearanceSubScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(32.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color.White)
-                                        .padding(3.dp),
+                                        .clip(RoundedCornerShape(8.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    androidx.compose.foundation.Image(
-                                        painter = androidx.compose.ui.res.painterResource(id = com.example.gemini.R.drawable.splash_logo),
+                                    com.example.gemini.ui.components.AppIconImage(
                                         contentDescription = "AntiTerm",
-                                        modifier = Modifier.size(26.dp)
+                                        modifier = Modifier.matchParentSize()
                                     )
                                 }
 
@@ -2139,7 +2285,10 @@ private data class McpPreset(
     val subtitle: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val accent: Color,
-    val spec: com.example.gemini.domain.model.McpServerSpec?
+    val spec: com.example.gemini.domain.model.McpServerSpec?,
+    /** Opens its own flow instead of the server editor (REA's tool group picker). */
+    val onClick: (() -> Unit)? = null,
+    val added: Boolean = false
 )
 
 /** One preset in the MCP screens' grid (also used by the Claude CLI MCP settings). */
@@ -2347,10 +2496,13 @@ private fun McpSubScreen(
     isCascadePluginsLoading: Boolean = false,
     installingCascadePluginId: String? = null,
     onSearchCascadePlugins: (String) -> Unit = {},
-    onInstallCascadePlugin: (com.example.gemini.data.remote.dto.AvailableCascadePluginDto) -> Unit = {}
+    onInstallCascadePlugin: (com.example.gemini.data.remote.dto.AvailableCascadePluginDto) -> Unit = {},
+    onOpenRea: () -> Unit = {},
+    onOpenReaGroups: () -> Unit = {}
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var chooseWebViewExtension by remember { mutableStateOf(false) }
+    var showReaDialog by remember { mutableStateOf(false) }
     var showCascadeCatalogDialog by remember { mutableStateOf(false) }
     var serverToEdit by remember { mutableStateOf<com.example.gemini.domain.model.McpServerSpec?>(null) }
     var serverToDelete by remember { mutableStateOf<String?>(null) }
@@ -2596,15 +2748,23 @@ private fun McpSubScreen(
                 McpPreset("Jarvis", "Voice control of this app", Icons.Outlined.RecordVoiceOver, com.example.gemini.theme.AppColors.accentTeal, localSpec(bridge.JARVIS_MCP_NAME, "/jarvis")),
                 McpPreset("Theme", "Create & switch app themes", Icons.Outlined.Palette, com.example.gemini.theme.AppColors.accentAlt, localSpec(bridge.THEME_MCP_NAME, "/theme")),
                 McpPreset("Stitch", "Google Stitch UI design · API key", Icons.Outlined.Palette, com.example.gemini.theme.AppColors.accentPink,
-                    com.example.gemini.domain.model.McpServerSpec(serverName = "stitch", serverUrl = "https://stitch.googleapis.com/mcp", headers = mapOf("X-Goog-Api-Key" to "")))
-            )
+                    com.example.gemini.domain.model.McpServerSpec(serverName = "stitch", serverUrl = "https://stitch.googleapis.com/mcp", headers = mapOf("X-Goog-Api-Key" to ""))),
+                // REA runs in the terminal's proot-distro Ubuntu, so only on com.termux builds; the tile picks its tool groups
+                if (com.example.gemini.data.local.LocalEnvironmentManager.isTermuxPackage(context))
+                    McpPreset("REA", "Reverse engineering · APK & native", Icons.Outlined.BugReport, com.example.gemini.theme.AppColors.accentPink, null,
+                        onClick = { showReaDialog = true },
+                        added = mcpServers.any { it.spec?.serverUrl.isNullOrBlank() && com.example.gemini.data.rea.ReaManager.isReaCommand(it.spec?.command) })
+                else null
+            ).filterNotNull()
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 presets.chunked(2).forEach { row ->
                     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         row.forEach { p ->
                             val found = p.spec?.let { existing(it) }
-                            McpPresetTile(p.name, p.subtitle, p.icon, p.accent, added = found != null, modifier = Modifier.weight(1f).fillMaxHeight()) {
-                                if (p.spec == null) {
+                            McpPresetTile(p.name, p.subtitle, p.icon, p.accent, added = found != null || p.added, modifier = Modifier.weight(1f).fillMaxHeight()) {
+                                if (p.onClick != null) {
+                                    p.onClick.invoke()
+                                } else if (p.spec == null) {
                                     chooseWebViewExtension = true
                                 } else {
                                     serverToEdit = found?.spec ?: p.spec
@@ -3181,6 +3341,27 @@ private fun McpSubScreen(
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    // REA preset (the same in every agent's MCP settings): a stdio server running the rea-mcp launcher
+    if (showReaDialog) {
+        val reaServers = mcpServers.mapNotNull { srv ->
+            srv.spec?.takeIf { it.serverUrl.isBlank() && com.example.gemini.data.rea.ReaManager.isReaCommand(it.command) }?.let { srv.name to it }
+        }.toMap()
+        ReaServerDialog(
+            agent = "Antigravity",
+            existing = reaServers.mapValues { it.value.env },
+            takenNames = mcpServers.map { it.name }.toSet(),
+            canReplace = true,
+            onDismiss = { showReaDialog = false },
+            onSave = { name, env ->
+                val base = reaServers[name] ?: com.example.gemini.domain.model.McpServerSpec(serverName = name)
+                onSaveServer(base.copy(serverName = name, command = com.example.gemini.data.rea.ReaManager.LAUNCHER, args = emptyList(), env = env), null)
+                showReaDialog = false
+            },
+            onOpenRea = { showReaDialog = false; onOpenRea() },
+            onOpenGroups = { showReaDialog = false; onOpenReaGroups() }
         )
     }
 
@@ -8364,21 +8545,12 @@ private fun AboutSubScreen(
                     .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Surface(
-                    shape = CircleShape,
-                    color = com.example.gemini.theme.AppColors.accentAlt.copy(alpha = 0.15f),
-                    border = BorderStroke(1.5.dp, com.example.gemini.theme.AppColors.accentAlt.copy(alpha = 0.4f)),
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Outlined.Info,
-                            contentDescription = null,
-                            tint = com.example.gemini.theme.AppColors.accentAlt,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
+                com.example.gemini.ui.components.AppIconImage(
+                    contentDescription = "AntiGem",
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "AntiGem",

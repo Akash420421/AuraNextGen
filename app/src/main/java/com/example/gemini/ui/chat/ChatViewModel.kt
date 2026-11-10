@@ -78,6 +78,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val openCodePrefs = com.example.gemini.data.agent.opencode.OpenCodePreferences(application)
     val openCodeBackend = com.example.gemini.data.agent.opencode.OpenCodeChatBackend(application, viewModelScope, store, openCodePrefs)
 
+    /** Codex: one `codex app-server` on the bridge for all its chats (OpenAI's Codex CLI, ChatGPT sign-in). */
+    val codexPrefs = com.example.gemini.data.agent.codex.CodexPreferences(application)
+    val codexBackend = com.example.gemini.data.agent.codex.CodexChatBackend(application, viewModelScope, store, codexPrefs)
+    /** Dictation for Codex chats: the phone's own speech recognizer, in the device's language (Codex has none of its own). */
+    val codexVoice = com.example.gemini.data.jarvis.AndroidSpeechTranscriber(application) { java.util.Locale.getDefault().toLanguageTag() }
+
     /** Agent of the conversation on screen; chat actions go to that agent's backend. */
     val activeAgent: StateFlow<AgentKind> = store.currentConversation
         .map { it?.agent ?: AgentKind.AGY }
@@ -85,6 +91,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val isClaudeActive get() = store.currentConversation.value?.agent == AgentKind.CLAUDE
     private val isOpenCodeActive get() = store.currentConversation.value?.agent == AgentKind.OPENCODE
+    private val isCodexActive get() = store.currentConversation.value?.agent == AgentKind.CODEX
 
     /** Agent used for new chats, picked on the empty chat screen (remembered). */
     val newChatAgent: StateFlow<AgentKind> = claudePrefs.newChatAgent
@@ -101,6 +108,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val isClaudeEnabled get() = AgentKind.CLAUDE in enabledAgents.value
     private val isOpenCodeEnabled get() = AgentKind.OPENCODE in enabledAgents.value
+    private val isCodexEnabled get() = AgentKind.CODEX in enabledAgents.value
 
     /**
      * Applies an agent selection: saves it, starts / stops Claude Code in the app, leaves a chat of a disabled
@@ -119,6 +127,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             claudeBackend.stop()
         }
         if (AgentKind.OPENCODE in agents) openCodeBackend.start() else openCodeBackend.stop()
+        if (AgentKind.CODEX in agents) codexBackend.start() else codexBackend.stop()
         val cur = store.currentConversation.value
         if (cur == null || cur.agent !in agents) startNewChat()
         if (firstChoice) {
@@ -150,21 +159,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val noQuotas = MutableStateFlow<List<ModelQuota>>(emptyList())
     private val alwaysFalse = MutableStateFlow(false)
 
-    private fun <T> byAgent(agy: StateFlow<T>, claude: StateFlow<T>, openCode: StateFlow<T>): StateFlow<T> =
-        combine(store.currentConversation, agy, claude, openCode) { conv, a, c, o ->
+    private fun <T> byAgent(agy: StateFlow<T>, claude: StateFlow<T>, openCode: StateFlow<T>, codex: StateFlow<T>): StateFlow<T> =
+        combine(store.currentConversation, agy, claude, openCode, codex) { conv, a, c, o, x ->
             when (conv?.agent) {
                 AgentKind.CLAUDE -> c
                 AgentKind.OPENCODE -> o
+                AgentKind.CODEX -> x
                 else -> a
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, agy.value)
 
     private val noQueued = MutableStateFlow<List<com.example.gemini.domain.model.QueuedMessage>>(emptyList())
-
-    private fun isoUtc(epochSeconds: Long): String =
-        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
-            .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
-            .format(java.util.Date(epochSeconds * 1000))
 
     private fun agentOf(conversationId: String): AgentKind =
         allConversations.value.find { it.id == conversationId }?.agent
@@ -177,6 +182,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun openCodeNotSupported(action: String) {
         com.example.gemini.ui.components.AppToastHelper.showToast("$action is not available in OpenCode chats yet", com.example.gemini.ui.components.ChatToastType.INFO)
+    }
+
+    private fun codexNotSupported(action: String) {
+        com.example.gemini.ui.components.AppToastHelper.showToast("$action is not available in Codex chats yet", com.example.gemini.ui.components.ChatToastType.INFO)
     }
 
     fun setNewChatAgent(agent: AgentKind) {
@@ -196,36 +205,59 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val isConversationsLoading = agyBackend.isConversationsLoading
     val artifacts = agyBackend.artifacts
     val pendingApprovals = agyBackend.pendingApprovals
-    val isStreaming = byAgent(agyBackend.isStreaming, claudeBackend.isStreaming, openCodeBackend.isStreaming)
-    val availableModels = byAgent(agyBackend.availableModels, claudeBackend.availableModels, openCodeBackend.availableModels)
+    val isStreaming = byAgent(agyBackend.isStreaming, claudeBackend.isStreaming, openCodeBackend.isStreaming, codexBackend.isStreaming)
+    val availableModels = byAgent(agyBackend.availableModels, claudeBackend.availableModels, openCodeBackend.availableModels, codexBackend.availableModels)
     val enabledModelIds = agyBackend.enabledModelIds
-    val enabledModels = byAgent(agyBackend.enabledModels, claudeBackend.availableModels, openCodeBackend.availableModels)
-    val isRefreshingModels = byAgent(agyBackend.isRefreshingModels, claudeBackend.isRefreshingModels, openCodeBackend.isRefreshingModels)
-    val selectedModelId = byAgent(agyBackend.selectedModelId, claudeBackend.selectedModelId, openCodeBackend.selectedModelId)
+    val enabledModels = byAgent(agyBackend.enabledModels, claudeBackend.availableModels, openCodeBackend.availableModels, codexBackend.availableModels)
+    val isRefreshingModels = byAgent(agyBackend.isRefreshingModels, claudeBackend.isRefreshingModels, openCodeBackend.isRefreshingModels, codexBackend.isRefreshingModels)
+    val selectedModelId = byAgent(agyBackend.selectedModelId, claudeBackend.selectedModelId, openCodeBackend.selectedModelId, codexBackend.selectedModelId)
     val preferredModelName = agyBackend.preferredModelName
-    /** Claude's plan windows as the model pill's quota (remaining share of the 5-hour and weekly limits). */
+    /**
+     * Claude's plan limits as the model pill's quota: the 5-hour limit, or the weekly one (the user's choice in the
+     * model sheet). A model with its own weekly share (Fable) shows the tighter of its share and the all-models limit.
+     */
     private val claudeQuotas: StateFlow<List<ModelQuota>> =
-        combine(claudeBackend.selectedModelId, claudeBackend.rateLimits, claudeAccount.usage) { modelId, live, usage ->
+        combine(
+            claudeBackend.selectedModelId,
+            claudeBackend.rateLimits,
+            claudeAccount.usage,
+            com.example.gemini.domain.model.ModelGroupPrefs.overrides(com.example.gemini.domain.model.QuotaAgent.CLAUDE),
+            com.example.gemini.domain.model.ModelGroupPrefs.pillWindow(com.example.gemini.domain.model.QuotaAgent.CLAUDE)
+        ) { modelId, live, usage, overrides, pill ->
             // plan limits belong to Claude's own models; a custom provider's model has none
             if (com.example.gemini.data.agent.claude.ClaudeChatBackend.providerOf(modelId).isNotEmpty()) return@combine emptyList()
-            // live windows from the chat stream are fresher than the cached usage call (percent there)
-            val five = live["five_hour"]?.let { it.utilization to it.resetsAt?.let(::isoUtc) }
-                ?: usage?.rate_limits?.five_hour?.let { (it.utilization ?: 0.0) / 100.0 to it.resets_at }
-            val week = live["seven_day"]?.let { it.utilization to it.resetsAt?.let(::isoUtc) }
-                ?: usage?.rate_limits?.seven_day?.let { (it.utilization ?: 0.0) / 100.0 to it.resets_at }
-            if (five == null && week == null) emptyList()
-            else listOf(
-                ModelQuota(
-                    modelId = modelId,
-                    remainingFraction = five?.let { (1.0 - it.first).toFloat().coerceIn(0f, 1f) },
-                    resetTime = five?.second,
-                    weeklyRemainingFraction = week?.let { (1.0 - it.first).toFloat().coerceIn(0f, 1f) }
-                )
-            )
+            val groups = com.example.gemini.data.agent.claude.ClaudeQuotaGroups.groups(usage, live)
+            val group = com.example.gemini.data.agent.claude.ClaudeQuotaGroups.groupOf(modelId, claudeBackend.modelLabel(modelId), groups, overrides)
+            listOfNotNull(group?.toModelQuota(modelId, pill))
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val quotas = byAgent(agyBackend.quotas, claudeQuotas, noQuotas)
+    /** Codex's plan limits as the model pill's quota (the account's limits apply to every model). */
+    private val codexQuotas: StateFlow<List<ModelQuota>> = combine(codexBackend.selectedModelId, codexBackend.rateLimits) { modelId, limits ->
+        val primary = limits?.primary ?: return@combine emptyList()
+        fun countdown(resetsAt: Long?): String? = resetsAt?.let { s ->
+            val left = s * 1000 - System.currentTimeMillis()
+            when {
+                left <= 0 -> "now"
+                left >= 48 * 3_600_000L -> "${left / 86_400_000L}d"
+                left >= 3_600_000L -> "${left / 3_600_000L}h ${(left % 3_600_000L) / 60_000L}m"
+                else -> "${left / 60_000L}m"
+            }
+        }
+        val secondary = limits.secondary
+        listOf(
+            ModelQuota(
+                modelId = modelId,
+                remainingFraction = (1f - (primary.usedPercent / 100.0).toFloat()).coerceIn(0f, 1f),
+                usedPercentage = "${primary.usedPercent.toInt()}%",
+                resetCountdown = countdown(primary.resetsAt),
+                weeklyRemainingFraction = secondary?.let { (1f - (it.usedPercent / 100.0).toFloat()).coerceIn(0f, 1f) },
+                weeklyUsedPercentage = secondary?.let { "${it.usedPercent.toInt()}%" },
+                weeklyResetCountdown = secondary?.let { countdown(it.resetsAt) }
+            )
+        )
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val quotas = byAgent(agyBackend.quotas, claudeQuotas, noQuotas, codexQuotas)
     val quotaSummary = agyBackend.quotaSummary
-    val isLoadingConversation = byAgent(agyBackend.isLoadingConversation, claudeBackend.isLoadingConversation, openCodeBackend.isLoadingConversation)
+    val isLoadingConversation = byAgent(agyBackend.isLoadingConversation, claudeBackend.isLoadingConversation, openCodeBackend.isLoadingConversation, codexBackend.isLoadingConversation)
     fun setModelEnabled(modelId: String, isEnabled: Boolean) = agyBackend.setModelEnabled(modelId, isEnabled)
     fun enableAllModels() = agyBackend.enableAllModels()
     val bridgeStatusMessage = agyBackend.bridgeStatusMessage
@@ -246,21 +278,27 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun loginToAgyHub(force: Boolean = false) = agyBackend.loginToAgyHub(force)
     fun logoutFromAgyHub() = agyBackend.logoutFromAgyHub()
     val activeInstances = agyBackend.activeInstances
+    /** An Antigravity voice call is on (it keeps the screen on, minimized too). */
+    private val voiceCallActive = com.example.gemini.data.voice.AgyVoiceCall.state.map { it.active }.distinctUntilChanged()
     /**
-     * Keeps the screen on: an Antigravity chat or task is working, a Claude Code chat is working (the one on screen, or
+     * Keeps the screen on: an Antigravity voice call is on, an Antigravity chat or task is working, a Claude Code chat is working (the one on screen, or
      * any other the session list shows as running), a Jarvis task runs, or Jarvis' keep-screen-on setting asks for it.
      */
     val isAnyGenerationOrTaskActive: StateFlow<Boolean> = combine(
         agyBackend.isAnyGenerationOrTaskActive,
         claudeBackend.isCurrentChatActivelyRunning,
         claudeBackend.conversations,
-        combine(com.example.gemini.data.jarvis.JarvisController.keepScreenAwake, openCodeBackend.isCurrentChatActivelyRunning, openCodeBackend.conversations) { j, ocTurn, ocChats ->
-            j || ocTurn || ocChats.any { it.isRunning }
+        combine(
+            com.example.gemini.data.jarvis.JarvisController.keepScreenAwake, openCodeBackend.isCurrentChatActivelyRunning, openCodeBackend.conversations,
+            codexBackend.isCurrentChatActivelyRunning, codexBackend.conversations
+        ) { j, ocTurn, ocChats, cxTurn, cxChats ->
+            j || ocTurn || ocChats.any { it.isRunning } || cxTurn || cxChats.any { it.isRunning }
         },
         com.example.gemini.data.jarvis.JarvisTasks.anyActive
     ) { agy, claudeTurn, claudeChats, jarvisOrOpenCode, tasks ->
         agy || claudeTurn || claudeChats.any { it.isRunning } || jarvisOrOpenCode || tasks
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    }.combine(voiceCallActive) { work, call -> work || call }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /**
      * Why the screen is kept on, one line per cause (same conditions as [isAnyGenerationOrTaskActive]); shown when
@@ -293,6 +331,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val openCodeChats = openCodeBackend.conversations.value.filter { it.isRunning }
             if (openCodeChats.isNotEmpty()) add("OpenCode is working in ${names(openCodeChats.map { it.title })}")
             else if (openCodeBackend.isCurrentChatActivelyRunning.value) add("OpenCode is replying")
+            val codexChats = codexBackend.conversations.value.filter { it.isRunning }
+            if (codexChats.isNotEmpty()) add("Codex is working in ${names(codexChats.map { it.title })}")
+            else if (codexBackend.isCurrentChatActivelyRunning.value) add("Codex is replying")
             if (tasks) add("A Jarvis task is running")
             if (jarvis) add(
                 when (com.example.gemini.data.jarvis.JarvisPreferences.keepScreenOn.value) {
@@ -301,9 +342,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val isCurrentChatActivelyRunning = byAgent(agyBackend.isCurrentChatActivelyRunning, claudeBackend.isCurrentChatActivelyRunning, openCodeBackend.isCurrentChatActivelyRunning)
-    val isCurrentChatBackgroundActive = byAgent(agyBackend.isCurrentChatBackgroundActive, alwaysFalse, alwaysFalse)
+    }.combine(voiceCallActive) { reasons, call -> if (call) listOf("A voice call with Antigravity is on") + reasons else reasons }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val isCurrentChatActivelyRunning = byAgent(agyBackend.isCurrentChatActivelyRunning, claudeBackend.isCurrentChatActivelyRunning, openCodeBackend.isCurrentChatActivelyRunning, codexBackend.isCurrentChatActivelyRunning)
+    val isCurrentChatBackgroundActive = byAgent(agyBackend.isCurrentChatBackgroundActive, alwaysFalse, alwaysFalse, alwaysFalse)
     val connectionState = agyBackend.connectionState
     fun refreshActiveInstances() = agyBackend.refreshActiveInstances()
     fun terminateInstance(conversationId: String) = agyBackend.terminateInstance(conversationId)
@@ -312,6 +354,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         agyBackend.retryConnections()
         if (isClaudeActive) claudeBackend.retryConnections()
         if (isOpenCodeEnabled) openCodeBackend.retryConnections()
+        if (isCodexEnabled) codexBackend.retryConnections()
     }
     fun onAppForegrounded() {
         agyBackend.onAppForegrounded()
@@ -321,6 +364,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             if (claudeAccount.state.value != com.example.gemini.data.agent.claude.ClaudeStatus.READY) claudeAccount.refreshStatus()
         }
         if (isOpenCodeEnabled) openCodeBackend.onAppForegrounded()
+        if (isCodexEnabled) codexBackend.onAppForegrounded()
     }
     fun onProjectChanged(projectPath: String) = agyBackend.onProjectChanged(projectPath)
     fun onUserStartedTyping() = agyBackend.onUserStartedTyping()
@@ -335,16 +379,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             AgentKind.CLAUDE -> {
                 agyBackend.detach()
                 openCodeBackend.detach()
+                codexBackend.detach()
                 claudeBackend.startNewChat()
             }
             AgentKind.OPENCODE -> {
                 agyBackend.detach()
                 claudeBackend.detach()
+                codexBackend.detach()
                 openCodeBackend.startNewChat()
+            }
+            AgentKind.CODEX -> {
+                agyBackend.detach()
+                claudeBackend.detach()
+                openCodeBackend.detach()
+                codexBackend.startNewChat()
             }
             AgentKind.AGY -> {
                 claudeBackend.detach()
                 openCodeBackend.detach()
+                codexBackend.detach()
                 agyBackend.startNewChat()
             }
         }
@@ -354,16 +407,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             AgentKind.CLAUDE -> {
                 agyBackend.detach()
                 openCodeBackend.detach()
+                codexBackend.detach()
                 claudeBackend.selectConversation(id)
             }
             AgentKind.OPENCODE -> {
                 agyBackend.detach()
                 claudeBackend.detach()
+                codexBackend.detach()
                 openCodeBackend.selectConversation(id)
+            }
+            AgentKind.CODEX -> {
+                agyBackend.detach()
+                claudeBackend.detach()
+                openCodeBackend.detach()
+                codexBackend.selectConversation(id)
             }
             AgentKind.AGY -> {
                 claudeBackend.detach()
                 openCodeBackend.detach()
+                codexBackend.detach()
                 agyBackend.selectConversation(id)
             }
         }
@@ -373,13 +435,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         when (agentOf(id)) {
             AgentKind.CLAUDE -> claudeBackend.deleteConversation(id)
             AgentKind.OPENCODE -> openCodeBackend.deleteConversation(id)
+            AgentKind.CODEX -> codexBackend.deleteConversation(id)
             AgentKind.AGY -> agyBackend.deleteConversation(id)
         }
+        // files the app copied for this chat go with it (never the user's own files picked in Files)
+        val copies = com.example.gemini.data.files.AttachedFiles.takeCopiesOf(getApplication(), id)
+        if (copies.isNotEmpty()) viewModelScope.launch(Dispatchers.IO) { com.example.gemini.data.files.FileExplorerApi.delete(copies) }
         // Jarvis forgets it too: a deleted Jarvis chat is replaced by a new one on the next message
         com.example.gemini.data.jarvis.JarvisController.onChatDeleted(id)
     }
     fun forkConversation(id: String) {
-        if (agentOf(id) == AgentKind.OPENCODE) {
+        if (agentOf(id) == AgentKind.CODEX) {
+            agyBackend.detach()
+            claudeBackend.detach()
+            openCodeBackend.detach()
+            codexBackend.forkConversation(id)
+        } else if (agentOf(id) == AgentKind.OPENCODE) {
             agyBackend.detach()
             claudeBackend.detach()
             openCodeBackend.forkConversation(id)
@@ -393,24 +464,93 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun selectModel(modelId: String) = when {
         isClaudeActive -> claudeBackend.selectModel(modelId)
         isOpenCodeActive -> openCodeBackend.selectModel(modelId)
+        isCodexActive -> codexBackend.selectModel(modelId)
         else -> agyBackend.selectModel(modelId)
     }
-    /** `/plu:` plugin skills and custom slash commands are expanded here, for both agents. */
-    fun sendMessage(content: String) = PromptExpansion.expand(content).let {
+    /**
+     * `/plu:` plugin skills and custom slash commands are expanded here, for every agent. Attached files go along as a
+     * hidden list of their paths at the end (the agent opens them in place). Sends once copies still running are done.
+     */
+    fun sendMessage(content: String) {
+        val pending = uploadJobs.values.toList()
+        if (pending.isEmpty() && !_isUploadingAttachment.value) {
+            sendNow(content)
+            return
+        }
+        viewModelScope.launch {
+            for (job in pending) job.join()
+            _isUploadingAttachment.first { !it }
+            sendNow(content)
+        }
+    }
+
+    private fun sendNow(content: String) {
+        val refs = com.example.gemini.data.files.AttachedFiles.refsOf(_attachments.value)
+        val typed = PromptExpansion.expand(content)
+        val expanded = if (refs.isEmpty()) typed
+            else listOf(typed, com.example.gemini.data.files.AttachedFiles.block(refs)).filter { it.isNotBlank() }.joinToString("\n\n")
+        // a Jarvis chat on screen: its message carries Jarvis' hidden note (or goes to the voice Jarvis chat as a typed turn)
+        val jarvis = com.example.gemini.data.jarvis.JarvisController
+        val chatId = currentConversation.value?.id
+        val intercepted = (if (jarvis.isAttached) jarvis.interceptScreenMessage(chatId, expanded) else expanded) ?: return
+        rememberCopies(chatId, refs)
+        // a normal chat (a Jarvis chat carries its own guide instead): the app's global context goes in front
+        val it = if (intercepted === expanded) withGlobalContext(chatId, expanded) else intercepted
         when {
             isClaudeActive -> claudeBackend.sendMessage(it)
             isOpenCodeActive -> openCodeBackend.sendMessage(it)
+            isCodexActive -> codexBackend.sendMessage(it)
             else -> agyBackend.sendMessage(it)
         }
     }
+
+    /** The copies a sent message uses are kept under its chat (a new chat once it has its id), so deleting the chat deletes them. */
+    private fun rememberCopies(chatId: String?, refs: List<com.example.gemini.data.files.AttachedFiles.Ref>) {
+        // sent: these copies now belong to the chat, not to chips that could still be removed
+        uploadFolders.keys.removeAll(_attachments.value.map { it.id }.toSet())
+        if (refs.none { com.example.gemini.data.files.AttachedFiles.isUploadCopy(it.path) }) return
+        val app = getApplication<Application>()
+        if (!chatId.isNullOrBlank()) {
+            com.example.gemini.data.files.AttachedFiles.rememberCopies(app, chatId, refs)
+            return
+        }
+        viewModelScope.launch {
+            withTimeoutOrNull(120_000) { currentConversation.first { !it?.id.isNullOrBlank() } }
+                ?.id?.let { com.example.gemini.data.files.AttachedFiles.rememberCopies(app, it, refs) }
+        }
+    }
+    /** Settings → Agents → Global context, hidden in front of the message; a new chat is remembered once it has its id. */
+    private fun withGlobalContext(chatId: String?, text: String): String {
+        val hasEarlier = messages.value.any { m -> m.role == MessageRole.USER }
+        val (prompt, fingerprint) = com.example.gemini.data.context.GlobalContext.wrap(chatId, hasEarlier, text)
+        if (fingerprint != null && chatId.isNullOrBlank()) {
+            viewModelScope.launch {
+                kotlinx.coroutines.withTimeoutOrNull(120_000) { currentConversation.first { !it?.id.isNullOrBlank() } }
+                    ?.id?.let { com.example.gemini.data.context.GlobalContext.markSent(it, fingerprint) }
+            }
+        }
+        return prompt
+    }
+
+    /** Editing the first message drops the hidden context with it: send it again with the next message. */
+    private fun forgetContextIfFirst(targetId: String) {
+        val firstUser = messages.value.firstOrNull { it.role == MessageRole.USER } ?: return
+        if (firstUser.id == targetId) com.example.gemini.data.context.GlobalContext.forget(currentConversation.value?.id)
+    }
+
     val isTranscribingAudio = agyBackend.isTranscribingAudio
     fun transcribeAudioFile(file: java.io.File, onDone: (String) -> Unit, onError: (String) -> Unit) = agyBackend.transcribeAudioFile(file, onDone, onError)
     fun retryMessage(messageId: String) = when {
         isClaudeActive -> claudeBackend.regenerate(messageId)
         isOpenCodeActive -> openCodeBackend.regenerate(messageId)
+        isCodexActive -> codexBackend.regenerate(messageId)
         else -> agyBackend.retryMessage(messageId)
     }
     fun prepareEditMessage(messageId: String): String? {
+        if (isCodexActive) {
+            codexNotSupported("Editing a sent message")
+            return null
+        }
         if (isOpenCodeActive) {
             openCodeNotSupported("Editing a sent message")
             return null
@@ -419,14 +559,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             claudeNotSupported("Editing a sent message")
             return null
         }
-        return agyBackend.prepareEditMessage(messageId)?.let(PromptExpansion::collapse)
+        return agyBackend.prepareEditMessage(messageId)?.let { restoreAttachedFiles(it); editableText(it) }
     }
-    fun revertAndEditLastUserMessage(targetMsg: ChatMessage, onRestored: (String) -> Unit) = if (isOpenCodeActive) openCodeBackend.editMessage(targetMsg.id, restoreFiles = false) { onRestored(PromptExpansion.collapse(it)) } else if (isClaudeActive) claudeBackend.editMessage(targetMsg.id, restoreCode = false) { onRestored(PromptExpansion.collapse(it)) } else agyBackend.revertAndEditLastUserMessage(targetMsg) { onRestored(PromptExpansion.collapse(it)) }
+    fun revertAndEditLastUserMessage(targetMsg: ChatMessage, onRestored: (String) -> Unit) {
+        forgetContextIfFirst(targetMsg.id)
+        val restored: (String) -> Unit = { restoreAttachedFiles(it); onRestored(editableText(it)) }
+        if (isCodexActive) codexBackend.editMessage(targetMsg.id, restored)
+        else if (isOpenCodeActive) openCodeBackend.editMessage(targetMsg.id, restoreFiles = false, restored)
+        else if (isClaudeActive) claudeBackend.editMessage(targetMsg.id, restoreCode = false, restored)
+        else agyBackend.revertAndEditLastUserMessage(targetMsg, restored)
+    }
 
     /** Claude: edit a sent prompt in a copy of the chat that ends before it; optionally restore the files changed since. */
-    fun editClaudeMessage(targetMsg: ChatMessage, restoreCode: Boolean, onRestored: (String) -> Unit) =
-        if (isOpenCodeActive) openCodeBackend.editMessage(targetMsg.id, restoreCode) { onRestored(PromptExpansion.collapse(it)) }
-        else claudeBackend.editMessage(targetMsg.id, restoreCode) { onRestored(PromptExpansion.collapse(it)) }
+    fun editClaudeMessage(targetMsg: ChatMessage, restoreCode: Boolean, onRestored: (String) -> Unit) {
+        val restored: (String) -> Unit = { restoreAttachedFiles(it); onRestored(editableText(it)) }
+        if (isCodexActive) codexBackend.editMessage(targetMsg.id, restored)
+        else if (isOpenCodeActive) openCodeBackend.editMessage(targetMsg.id, restoreCode, restored)
+        else claudeBackend.editMessage(targetMsg.id, restoreCode, restored)
+    }
 
     /** Sidebar export / share of a Claude chat that is not open. */
     suspend fun loadClaudeMessages(conversationId: String): List<ChatMessage> = claudeBackend.loadMessages(conversationId)
@@ -434,26 +584,49 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /** Sidebar export / share of an OpenCode chat that is not open. */
     suspend fun loadOpenCodeMessages(conversationId: String): List<ChatMessage> = openCodeBackend.loadMessages(conversationId)
 
+    /** Sidebar export / share of a Codex chat that is not open. */
+    suspend fun loadCodexMessages(conversationId: String): List<ChatMessage> = codexBackend.loadMessages(conversationId)
+
     fun renameConversation(id: String, title: String) {
         when (agentOf(id)) {
             AgentKind.CLAUDE -> claudeBackend.renameConversation(id, title)
             AgentKind.OPENCODE -> openCodeBackend.renameConversation(id, title)
-            AgentKind.AGY -> Unit
+            AgentKind.CODEX -> codexBackend.renameConversation(id, title)
+            AgentKind.AGY -> agyBackend.renameConversation(id, title)
         }
     }
+
+    /** Archives / unarchives a chat, each agent the way it stores it (AGY annotations, OpenCode session, Claude bridge list). */
+    fun setConversationArchived(id: String, archived: Boolean) {
+        when (agentOf(id)) {
+            AgentKind.CLAUDE -> claudeBackend.setArchived(id, archived)
+            AgentKind.OPENCODE -> openCodeBackend.setArchived(id, archived)
+            AgentKind.CODEX -> codexBackend.setArchived(id, archived)
+            AgentKind.AGY -> agyBackend.setArchived(id, archived)
+        }
+    }
+
+    /** Sidebar archive view (archived chats only). Kept in memory only: the app always starts on the normal list. */
+    private val _showArchivedChats = MutableStateFlow(false)
+    val showArchivedChats: StateFlow<Boolean> = _showArchivedChats.asStateFlow()
+    fun setShowArchivedChats(on: Boolean) { _showArchivedChats.value = on }
     fun stopStreaming() = when {
         isClaudeActive -> claudeBackend.stopStreaming()
         isOpenCodeActive -> openCodeBackend.stopStreaming()
+        isCodexActive -> codexBackend.stopStreaming()
         else -> agyBackend.stopStreaming()
     }
 
     /** Messages sent while the agent was working, waiting to be delivered (queued-messages card). */
-    val queuedMessages = byAgent(agyBackend.queuedMessages, claudeBackend.queuedMessages, noQueued)
-    fun sendQueuedNow(id: String) { if (isClaudeActive) claudeBackend.sendQueuedNow(id) else if (!isOpenCodeActive) agyBackend.sendQueuedNow(id) }
-    fun deleteQueued(id: String) { if (!isClaudeActive && !isOpenCodeActive) agyBackend.deleteQueued(id) }
+    val queuedMessages = byAgent(agyBackend.queuedMessages, claudeBackend.queuedMessages, noQueued, codexBackend.queuedMessages)
+    fun sendQueuedNow(id: String) { if (isCodexActive) codexBackend.sendQueuedNow(id) else if (isClaudeActive) claudeBackend.sendQueuedNow(id) else if (!isOpenCodeActive) agyBackend.sendQueuedNow(id) }
+    fun deleteQueued(id: String) { if (isCodexActive) codexBackend.deleteQueued(id) else if (!isClaudeActive && !isOpenCodeActive) agyBackend.deleteQueued(id) }
     fun applyQuotaSummary(summary: com.example.gemini.domain.model.QuotaSummaryResponse) = agyBackend.applyQuotaSummary(summary)
     fun refreshQuotas(force: Boolean = true, showToastFeedback: Boolean = false) {
-        if (isOpenCodeActive) {
+        if (isCodexActive) {
+            codexBackend.refreshModels()
+            viewModelScope.launch { codexBackend.refreshRateLimits() }
+        } else if (isOpenCodeActive) {
             openCodeBackend.refreshModels()
         } else if (isClaudeActive) {
             claudeBackend.refreshInfo(force)
@@ -462,21 +635,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             agyBackend.refreshQuotas(force, showToastFeedback)
         }
     }
-    fun approveAndExecuteTerminalTool(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String, scope: String? = null) = if (isOpenCodeActive) openCodeBackend.approveTool(toolCall) else if (isClaudeActive) claudeBackend.approveTool(toolCall) else agyBackend.approveAndExecuteTerminalTool(toolCall, messageId, scope)
-    fun rejectTerminalTool(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String, reason: String? = null) = if (isOpenCodeActive) openCodeBackend.rejectTool(toolCall, reason) else if (isClaudeActive) claudeBackend.rejectTool(toolCall, reason) else agyBackend.rejectTerminalTool(toolCall, messageId, reason)
-    fun approveAllPendingTools(list: List<PendingToolApproval>) = if (isOpenCodeActive) list.forEach { openCodeBackend.approveTool(it.toolCall) } else if (isClaudeActive) list.forEach { claudeBackend.approveTool(it.toolCall) } else agyBackend.approveAllPendingTools(list)
-    fun rejectAllPendingTools(list: List<PendingToolApproval>, reason: String? = null) = if (isOpenCodeActive) list.forEach { openCodeBackend.rejectTool(it.toolCall, reason) } else if (isClaudeActive) list.forEach { claudeBackend.rejectTool(it.toolCall, reason) } else agyBackend.rejectAllPendingTools(list, reason)
-    fun terminateRunningTerminalTool(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String) = if (isOpenCodeActive) openCodeBackend.stopStreaming() else if (isClaudeActive) claudeBackend.stopStreaming() else agyBackend.terminateRunningTerminalTool(toolCall, messageId)
+    fun approveAndExecuteTerminalTool(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String, scope: String? = null) = if (isCodexActive) codexBackend.approveTool(toolCall) else if (isOpenCodeActive) openCodeBackend.approveTool(toolCall) else if (isClaudeActive) claudeBackend.approveTool(toolCall) else agyBackend.approveAndExecuteTerminalTool(toolCall, messageId, scope)
+    fun rejectTerminalTool(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String, reason: String? = null) = if (isCodexActive) codexBackend.rejectTool(toolCall, reason) else if (isOpenCodeActive) openCodeBackend.rejectTool(toolCall, reason) else if (isClaudeActive) claudeBackend.rejectTool(toolCall, reason) else agyBackend.rejectTerminalTool(toolCall, messageId, reason)
+    fun approveAllPendingTools(list: List<PendingToolApproval>) = if (isCodexActive) list.forEach { codexBackend.approveTool(it.toolCall) } else if (isOpenCodeActive) list.forEach { openCodeBackend.approveTool(it.toolCall) } else if (isClaudeActive) list.forEach { claudeBackend.approveTool(it.toolCall) } else agyBackend.approveAllPendingTools(list)
+    fun rejectAllPendingTools(list: List<PendingToolApproval>, reason: String? = null) = if (isCodexActive) list.forEach { codexBackend.rejectTool(it.toolCall, reason) } else if (isOpenCodeActive) list.forEach { openCodeBackend.rejectTool(it.toolCall, reason) } else if (isClaudeActive) list.forEach { claudeBackend.rejectTool(it.toolCall, reason) } else agyBackend.rejectAllPendingTools(list, reason)
+    fun terminateRunningTerminalTool(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String) = if (isCodexActive) codexBackend.stopStreaming() else if (isOpenCodeActive) openCodeBackend.stopStreaming() else if (isClaudeActive) claudeBackend.stopStreaming() else agyBackend.terminateRunningTerminalTool(toolCall, messageId)
     fun proceedAfterTermination(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String, userInstructions: String?) {
-        if (isClaudeActive || isOpenCodeActive) {
+        if (isClaudeActive || isOpenCodeActive || isCodexActive) {
             store.terminatedToolDialog.value = null
             return
         }
         agyBackend.proceedAfterTermination(toolCall, messageId, userInstructions)
     }
-    fun submitUserChoices(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String, responses: List<com.example.gemini.data.remote.dto.AskQuestionResponseItemDto>, summaryDisplay: String) = if (isOpenCodeActive) openCodeBackend.submitChoices(toolCall, responses) else if (isClaudeActive) claudeBackend.submitChoices(toolCall, responses, summaryDisplay) else agyBackend.submitUserChoices(toolCall, messageId, responses, summaryDisplay)
-    fun skipUserChoices(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String, responses: List<com.example.gemini.data.remote.dto.AskQuestionResponseItemDto> = emptyList()) = if (isOpenCodeActive) openCodeBackend.cancelChoices(toolCall) else if (isClaudeActive) claudeBackend.skipChoices(toolCall) else agyBackend.skipUserChoices(toolCall, messageId, responses)
-    fun cancelUserChoices(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String) = if (isOpenCodeActive) openCodeBackend.cancelChoices(toolCall) else if (isClaudeActive) claudeBackend.cancelChoices(toolCall) else agyBackend.cancelUserChoices(toolCall, messageId)
+    fun submitUserChoices(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String, responses: List<com.example.gemini.data.remote.dto.AskQuestionResponseItemDto>, summaryDisplay: String) = if (isCodexActive) codexBackend.submitChoices(toolCall, responses) else if (isOpenCodeActive) openCodeBackend.submitChoices(toolCall, responses) else if (isClaudeActive) claudeBackend.submitChoices(toolCall, responses, summaryDisplay) else agyBackend.submitUserChoices(toolCall, messageId, responses, summaryDisplay)
+    fun skipUserChoices(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String, responses: List<com.example.gemini.data.remote.dto.AskQuestionResponseItemDto> = emptyList()) = if (isCodexActive) codexBackend.cancelChoices(toolCall) else if (isOpenCodeActive) openCodeBackend.cancelChoices(toolCall) else if (isClaudeActive) claudeBackend.skipChoices(toolCall) else agyBackend.skipUserChoices(toolCall, messageId, responses)
+    fun cancelUserChoices(toolCall: com.example.gemini.domain.model.ToolCall, messageId: String) = if (isCodexActive) codexBackend.cancelChoices(toolCall) else if (isOpenCodeActive) openCodeBackend.cancelChoices(toolCall) else if (isClaudeActive) claudeBackend.cancelChoices(toolCall) else agyBackend.cancelUserChoices(toolCall, messageId)
 
     val mcpServers = mcpManager.mcpServers
     val isMcpLoading = mcpManager.isMcpLoading
@@ -539,18 +712,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _conversations = store.conversations
     /** Every conversation of the enabled agents, Jarvis' own chats included. */
-    val allConversations: StateFlow<List<Conversation>> = combine(_conversations, claudeBackend.conversations, openCodeBackend.conversations, enabledAgents) { agy, claude, openCode, enabled ->
+    val allConversations: StateFlow<List<Conversation>> = combine(_conversations, claudeBackend.conversations, openCodeBackend.conversations, codexBackend.conversations, enabledAgents) { agy, claude, openCode, codex, enabled ->
         // a disabled agent's chats stay on disk but are not listed
         ((if (AgentKind.AGY in enabled) agy else emptyList()) + (if (AgentKind.CLAUDE in enabled) claude else emptyList()) +
-            (if (AgentKind.OPENCODE in enabled) openCode else emptyList()))
+            (if (AgentKind.OPENCODE in enabled) openCode else emptyList()) + (if (AgentKind.CODEX in enabled) codex else emptyList()))
             .sortedByDescending { it.updatedAt }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** Sidebar list: Antigravity and Claude Code conversations together, newest first. Jarvis' hidden chats are not in it. */
+    /**
+     * Sidebar list: every agent's conversations together, newest first. Jarvis' chats are listed under Jarvis; they also
+     * show here when the user chose so (Settings → Jarvis: none, their own Jarvis text chats, or all Jarvis chats).
+     */
     val conversations: StateFlow<List<Conversation>> = combine(
-        allConversations, com.example.gemini.data.jarvis.JarvisPreferences.chatIds, com.example.gemini.data.jarvis.JarvisPreferences.enabled.state
-    ) { all, jarvisIds, jarvisOn ->
-        if (!jarvisOn || jarvisIds.isEmpty()) all else all.filter { it.id !in jarvisIds }
+        allConversations, com.example.gemini.data.jarvis.JarvisPreferences.chatIds, com.example.gemini.data.jarvis.JarvisPreferences.enabled.state,
+        com.example.gemini.data.jarvis.JarvisPreferences.jarvisInAll.state, com.example.gemini.data.jarvis.JarvisManagers.managers
+    ) { all, jarvisIds, jarvisOn, inAll, managers ->
+        when {
+            !jarvisOn || jarvisIds.isEmpty() || inAll == "all" -> all
+            inAll == "text" -> all.filter { it.id !in jarvisIds || it.id in managers.keys }
+            else -> all.filter { it.id !in jarvisIds }
+        }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** The Jarvis filter in the sidebar: the chats Jarvis opened. */
@@ -585,7 +766,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /** Antigravity's chat state (shared store); Claude Code keeps its own, see [messages]. */
     private val _messages = store.messages
     /** Messages of the chat on screen, from the agent that owns it. */
-    val messages: StateFlow<List<ChatMessage>> = byAgent(_messages, claudeBackend.messages, openCodeBackend.messages)
+    val messages: StateFlow<List<ChatMessage>> = byAgent(_messages, claudeBackend.messages, openCodeBackend.messages, codexBackend.messages)
 
     private val _thinkingPreference = MutableStateFlow(com.example.gemini.domain.model.ThinkingPreference())
     val thinkingPreference: StateFlow<com.example.gemini.domain.model.ThinkingPreference> = _thinkingPreference.asStateFlow()
@@ -628,15 +809,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val attachments: StateFlow<List<com.example.gemini.domain.model.ChatAttachment>> = _attachments.asStateFlow()
 
     private val _isUploadingAttachment = MutableStateFlow(false)
+    /** True while picked images are being prepared (shrunk); sending waits for it. */
     val isUploadingAttachment: StateFlow<Boolean> = _isUploadingAttachment.asStateFlow()
 
+    /** Files being copied to the bridge machine: attachment id → 0..1, shown on their chips. Sending waits for them. */
+    private val _attachmentProgress = MutableStateFlow<Map<String, Float>>(emptyMap())
+    val attachmentProgress: StateFlow<Map<String, Float>> = _attachmentProgress.asStateFlow()
+    private val uploadJobs = java.util.concurrent.ConcurrentHashMap<String, Job>()
+    /** The copy folder made for each attachment picked here (deleted if the chip is removed before sending). */
+    private val uploadFolders = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /**
+     * Android's picker. An image becomes a shrunk copy the model sees directly; any other file is streamed (never read
+     * into memory) to the bridge machine and the agent gets its path there.
+     */
     fun addAttachmentsFromUris(uris: List<android.net.Uri>, context: android.content.Context) {
         if (uris.isEmpty()) return
+        val appContext = context.applicationContext
         viewModelScope.launch {
             _isUploadingAttachment.value = true
             try {
                 for (uri in uris) {
-                    processAndUploadUri(uri, context)
+                    addFromUri(uri, appContext)
                 }
             } finally {
                 _isUploadingAttachment.value = false
@@ -648,19 +842,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         addAttachmentsFromUris(listOf(uri), context)
     }
 
-    private suspend fun processAndUploadUri(uri: android.net.Uri, context: android.content.Context) {
+    private fun newAttachmentId() = "att_${System.currentTimeMillis()}_${(0..999).random()}"
+
+    private suspend fun addFromUri(uri: android.net.Uri, context: android.content.Context) {
+        var fileName = "attachment_${System.currentTimeMillis()}"
         try {
             val contentResolver = context.contentResolver
-            var fileName = "attachment_${System.currentTimeMillis()}"
             var fileSize = 0L
-
-            val cursor = contentResolver.query(uri, null, null, null, null)
-            cursor?.use {
-                if (it.moveToFirst()) {
-                    val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    val sizeIndex = it.getColumnIndex(android.provider.OpenableColumns.SIZE)
-                    if (nameIndex >= 0) fileName = it.getString(nameIndex) ?: fileName
-                    if (sizeIndex >= 0) fileSize = it.getLong(sizeIndex)
+            withContext(Dispatchers.IO) {
+                contentResolver.query(uri, null, null, null, null)?.use {
+                    if (it.moveToFirst()) {
+                        val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        val sizeIndex = it.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                        if (nameIndex >= 0) fileName = it.getString(nameIndex) ?: fileName
+                        if (sizeIndex >= 0 && !it.isNull(sizeIndex)) fileSize = it.getLong(sizeIndex)
+                    }
                 }
             }
 
@@ -668,44 +864,155 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val mimeType = contentResolver.getType(uri)
                 ?: android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
                 ?: "application/octet-stream"
-            val isImg = mimeType.startsWith("image/")
-            val isAud = mimeType.startsWith("audio/")
 
-            val bytes = withContext(Dispatchers.IO) {
-                contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            }
-
-            if (bytes != null) {
-                val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-                // Antigravity keeps attachments as hub artifacts; a Claude chat sends them itself (inline or saved
-                // on the bridge when the message is sent), so nothing goes to the AGY hub
-                val savedHostUri = if (isClaudeActive || isOpenCodeActive) uri.toString() else {
-                    agyHubClient.saveMediaAsArtifact(
-                        mimeType = mimeType,
-                        base64Data = base64,
-                        description = fileName,
-                        thumbnailBase64 = if (isImg) base64 else "",
-                        hubUrl = AuthPreferences.currentHubUrl
-                    ).getOrNull() ?: uri.toString()
+            if (mimeType.startsWith("image/")) {
+                val shrunk = withContext(Dispatchers.IO) { com.example.gemini.data.files.ImageShrinker.fromUri(context, uri, mimeType, fileSize) }
+                if (shrunk != null) {
+                    _attachments.value = _attachments.value + ChatAttachment(
+                        id = newAttachmentId(),
+                        name = com.example.gemini.data.files.ImageShrinker.nameFor(fileName, shrunk),
+                        path = "",
+                        isImage = true,
+                        localUri = uri.toString(),
+                        size = shrunk.bytes.size.toLong(),
+                        mimeType = shrunk.mimeType,
+                        base64 = android.util.Base64.encodeToString(shrunk.bytes, android.util.Base64.NO_WRAP)
+                    )
+                    return
                 }
-
-                val att = com.example.gemini.domain.model.ChatAttachment(
-                    id = "att_${System.currentTimeMillis()}_${(0..999).random()}",
-                    name = fileName,
-                    path = savedHostUri,
-                    isImage = isImg,
-                    isAudio = isAud,
-                    localUri = uri.toString(),
-                    size = if (fileSize > 0) fileSize else bytes.size.toLong(),
-                    mimeType = mimeType,
-                    base64 = base64
-                )
-                _attachments.value = _attachments.value + att
+                // an image Android cannot decode (e.g. TIFF) goes to the agent as a file
             }
-        } catch (e: Exception) {
-            android.util.Log.e("ChatViewModel", "Failed to add attachment from uri $uri: ${e.message}")
+            startCopy(uri, context, fileName, fileSize, mimeType)
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            Log.e("ChatViewModel", "Failed to add attachment from uri $uri: ${t.message}")
+            com.example.gemini.ui.components.AppToastHelper.showToast(
+                "Could not attach $fileName: ${t.message ?: t.javaClass.simpleName}",
+                com.example.gemini.ui.components.ChatToastType.ERROR
+            )
         }
     }
+
+    /** Streams a picked file to [AttachedFiles.UPLOADS_DIR] on the bridge machine; its chip shows the progress. */
+    private fun startCopy(uri: android.net.Uri, context: android.content.Context, fileName: String, fileSize: Long, mimeType: String) {
+        val id = newAttachmentId()
+        val folder = "${com.example.gemini.data.files.AttachedFiles.UPLOADS_DIR}/${UUID.randomUUID().toString().replace("-", "").take(16)}"
+        val safeName = fileName.replace('/', '_').replace('\u0000', '_').trim().ifBlank { "attachment" }.take(200)
+        _attachments.value = _attachments.value + ChatAttachment(
+            id = id,
+            name = fileName,
+            path = "",
+            localUri = uri.toString(),
+            size = fileSize,
+            mimeType = mimeType,
+            reference = true
+        )
+        uploadFolders[id] = folder
+        _attachmentProgress.update { it + (id to 0f) }
+        val job = viewModelScope.launch {
+            var sentTotal = 0L
+            var lastPercent = -1
+            val result = com.example.gemini.data.files.FileExplorerApi.upload(
+                input = { context.contentResolver.openInputStream(uri) ?: throw java.io.IOException("the file cannot be read") },
+                length = -1,
+                targetPath = "$folder/$safeName"
+            ) { sent ->
+                sentTotal = sent
+                if (fileSize > 0) {
+                    val percent = (sent * 100 / fileSize).toInt().coerceIn(0, 100)
+                    if (percent != lastPercent) {
+                        lastPercent = percent
+                        _attachmentProgress.update { m -> if (id in m) m + (id to percent / 100f) else m }
+                    }
+                }
+            }
+            val path = result.path
+            if (result.ok && !path.isNullOrBlank()) {
+                val size = if (fileSize > 0) fileSize else sentTotal
+                _attachments.update { list -> list.map { if (it.id == id) it.copy(path = path, size = size) else it } }
+            } else if (isActive) {
+                _attachments.update { list -> list.filter { it.id != id } }
+                uploadFolders.remove(id)?.let { com.example.gemini.data.files.FileExplorerApi.delete(listOf(it)) }
+                com.example.gemini.ui.components.AppToastHelper.showToast(
+                    "Could not copy $fileName to the agent's machine: ${result.error ?: "unknown error"}",
+                    com.example.gemini.ui.components.ChatToastType.ERROR
+                )
+            }
+        }
+        uploadJobs[id] = job
+        job.invokeOnCompletion {
+            uploadJobs.remove(id)
+            _attachmentProgress.update { it - id }
+        }
+    }
+
+    /**
+     * Files picked in the app's Files screen: they are already on the agent's machine, so nothing is copied and the
+     * agent opens the originals. An image also goes to the model as a shrunk copy, so the model sees it right away.
+     */
+    fun addExplorerFiles(entries: List<com.example.gemini.data.files.ExplorerEntry>) {
+        val files = entries.filter { !it.isDir }
+        if (files.isEmpty()) return
+        viewModelScope.launch {
+            _isUploadingAttachment.value = true
+            try {
+                for (e in files) {
+                    if (_attachments.value.any { it.reference && it.path == e.path }) continue
+                    val mime = com.example.gemini.data.files.AttachedFiles.mimeOf(e.name)
+                    var att = ChatAttachment(
+                        id = newAttachmentId(),
+                        name = e.name,
+                        path = e.path,
+                        size = e.size,
+                        mimeType = mime,
+                        url = com.example.gemini.data.files.FileExplorerApi.rawUrl(e.path),
+                        reference = true
+                    )
+                    if (mime.startsWith("image/")) {
+                        val shrunk = try {
+                            shrinkBridgeImage(e, mime)
+                        } catch (t: Throwable) {
+                            if (t is kotlinx.coroutines.CancellationException) throw t
+                            Log.w("ChatViewModel", "Could not prepare ${e.path} as an image: ${t.message}")
+                            null
+                        }
+                        if (shrunk != null) {
+                            att = att.copy(isImage = true, mimeType = shrunk.mimeType, base64 = android.util.Base64.encodeToString(shrunk.bytes, android.util.Base64.NO_WRAP))
+                        }
+                    }
+                    _attachments.value = _attachments.value + att
+                }
+            } finally {
+                _isUploadingAttachment.value = false
+            }
+        }
+    }
+
+    /** The shrunk copy of an image on the bridge machine: read in place when this phone can, else downloaded (streamed) first. */
+    private suspend fun shrinkBridgeImage(e: com.example.gemini.data.files.ExplorerEntry, mime: String): com.example.gemini.data.files.ImageShrinker.Shrunk? =
+        withContext(Dispatchers.IO) {
+            val api = com.example.gemini.data.files.FileExplorerApi
+            if (api.isLocallyReadable(e.path)) return@withContext com.example.gemini.data.files.ImageShrinker.fromFile(java.io.File(e.path), mime)
+            if (e.size > MAX_IMAGE_DOWNLOAD_BYTES) return@withContext null
+            val dir = java.io.File(getApplication<Application>().cacheDir, "attach-images").apply { mkdirs() }
+            val tmp = java.io.File(dir, UUID.randomUUID().toString())
+            try {
+                if (!api.download(e.path, tmp).ok) null else com.example.gemini.data.files.ImageShrinker.fromFile(tmp, mime)
+            } finally {
+                tmp.delete()
+            }
+        }
+
+    /** Editing a sent message puts its files back as chips. */
+    private fun restoreAttachedFiles(raw: String) {
+        val refs = com.example.gemini.data.files.AttachedFiles.parse(raw)
+        if (refs.isEmpty()) return
+        addExplorerFiles(refs.map { com.example.gemini.data.files.ExplorerEntry(name = it.path.trimEnd('/').substringAfterLast('/'), path = it.path, isDir = false, size = it.size) })
+    }
+
+    /** The text of a sent message as the user typed it (no hidden instructions, no file list). */
+    private fun editableText(raw: String): String =
+        PromptExpansion.collapse(com.example.gemini.data.files.AttachedFiles.extract(raw, "edit").first)
 
     fun addProjectFileAttachment(filePath: String, fileName: String) {
         viewModelScope.launch {
@@ -734,24 +1041,35 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun removeAttachment(attachmentId: String) {
         val target = _attachments.value.find { it.id == attachmentId }
-        if (target != null && target.path.isNotBlank() && !target.path.startsWith("content://") && !target.path.startsWith("/data/")) {
-            viewModelScope.launch(Dispatchers.IO) {
-                agyHubClient.deleteMediaArtifact(target.path)
-            }
-        }
         _attachments.value = _attachments.value.filter { it.id != attachmentId }
+        if (target != null) discardAttachment(target)
     }
 
     fun clearAttachments() {
         val atts = _attachments.value
-        viewModelScope.launch(Dispatchers.IO) {
-            for (target in atts) {
-                if (target.path.isNotBlank() && !target.path.startsWith("content://") && !target.path.startsWith("/data/")) {
-                    agyHubClient.deleteMediaArtifact(target.path)
-                }
+        _attachments.value = emptyList()
+        atts.forEach { discardAttachment(it) }
+    }
+
+    /**
+     * An attachment removed before it was sent: its copy stops and what the app made for it is deleted. A file the user
+     * picked in Files is their own and is never touched.
+     */
+    private fun discardAttachment(target: ChatAttachment) {
+        val job = uploadJobs.remove(target.id)
+        job?.cancel()
+        if (target.reference) {
+            val folder = uploadFolders.remove(target.id) ?: return
+            val delete: () -> Unit = { viewModelScope.launch(Dispatchers.IO) { com.example.gemini.data.files.FileExplorerApi.delete(listOf(folder)) } }
+            // a running copy is removed once it has stopped (the bridge drops the partial file itself)
+            if (job != null) job.invokeOnCompletion { delete() } else delete()
+            return
+        }
+        if (target.path.isNotBlank() && !target.path.startsWith("content://") && !target.path.startsWith("/data/")) {
+            viewModelScope.launch(Dispatchers.IO) {
+                agyHubClient.deleteMediaArtifact(target.path)
             }
         }
-        _attachments.value = emptyList()
     }
 
     private val _isDevModeEnabled = MutableStateFlow(false)
@@ -1098,7 +1416,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private val _conversationError = store.conversationError
-    val conversationError: StateFlow<String?> = byAgent(_conversationError, claudeBackend.conversationError, openCodeBackend.conversationError)
+    val conversationError: StateFlow<String?> = byAgent(_conversationError, claudeBackend.conversationError, openCodeBackend.conversationError, codexBackend.conversationError)
 
 
     private val _conversationDrafts = mutableMapOf<String, androidx.compose.ui.text.input.TextFieldValue>()
@@ -1123,8 +1441,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         agyBackend.start()
         if (isClaudeEnabled) claudeBackend.start()
         if (isOpenCodeEnabled) openCodeBackend.start()
+        if (isCodexEnabled) codexBackend.start()
         // the first chat follows the new-chat agent (Antigravity's own start-up chat only fills in when it is AGY)
-        if ((isClaudeEnabled || isOpenCodeEnabled) && (newChatAgent.value != AgentKind.AGY || AgentKind.AGY !in enabledAgents.value)) startNewChat()
+        if ((isClaudeEnabled || isOpenCodeEnabled || isCodexEnabled) && (newChatAgent.value != AgentKind.AGY || AgentKind.AGY !in enabledAgents.value)) startNewChat()
         claudeAccount.onAccountChanged = {
             claudeBackend.refreshInfo(force = true)
             viewModelScope.launch { claudeBackend.refreshSessions() }
@@ -1145,6 +1464,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             var wasOnline: Boolean? = null
             systemConnectionState.map { it.isBridgeOnline }.distinctUntilChanged().collect { online ->
                 if (isOpenCodeEnabled && online && wasOnline == false) openCodeBackend.retryConnections()
+                if (isCodexEnabled && online && wasOnline == false) codexBackend.retryConnections()
                 if (isClaudeEnabled) {
                     if (online && wasOnline == false) {
                         claudeAccount.refreshStatus()
@@ -1592,6 +1912,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             cm?.unregisterNetworkCallback(networkCallback)
         } catch (_: Exception) {}
         agyBackend.dispose()
+    }
+
+    private companion object {
+        /** An image picked in Files on a remote bridge is downloaded to be shrunk only up to this size (else: path only). */
+        const val MAX_IMAGE_DOWNLOAD_BYTES = 50L * 1024 * 1024
     }
 }
 

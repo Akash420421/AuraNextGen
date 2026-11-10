@@ -67,10 +67,19 @@ class ClaudeBridgeClient(
 
     suspend fun listSessions(): Result<ClaudeSessionListResponse> = get("/sessions")
 
-    suspend fun history(sessionId: String): Result<ClaudeHistoryResponse> = get("/sessions/$sessionId/history")
+    /**
+     * A chat's transcript. [full]: everything written so far, also while its process is live (for reading a chat
+     * without attaching to it); otherwise a live process' part is left to the session's event stream.
+     */
+    suspend fun history(sessionId: String, full: Boolean = false): Result<ClaudeHistoryResponse> =
+        get("/sessions/$sessionId/history" + if (full) "?full=1" else "")
 
     suspend fun rename(sessionId: String, title: String): Result<BridgeSimpleResponse> =
         post("/sessions/$sessionId/title", ClaudeJson.encodeToString(ClaudeTitleRequest(title)))
+
+    /** Archives / unarchives a chat (the bridge keeps the list; the transcript is untouched). */
+    suspend fun archive(sessionId: String, archived: Boolean): Result<BridgeSimpleResponse> =
+        post("/sessions/$sessionId/archive", ClaudeJson.encodeToString(ClaudeArchiveRequest(archived)))
 
     suspend fun kill(sessionId: String): Result<BridgeSimpleResponse> = post("/sessions/$sessionId/kill")
 
