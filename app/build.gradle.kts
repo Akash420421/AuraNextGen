@@ -174,6 +174,8 @@ dependencies {
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.material.icons.extended)
+  // Hardware-accelerated backdrop blur & frosted glass effects
+  implementation("dev.chrisbanes.haze:haze:1.5.3")
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests

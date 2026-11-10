@@ -52,6 +52,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import com.example.gemini.ui.components.StaggeredMenuIcon
 import com.example.gemini.ui.components.NewChatIcon
+import com.example.gemini.ui.components.chatListFadeMask
+import dev.chrisbanes.haze.rememberHazeState
+import dev.chrisbanes.haze.hazeSource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -656,6 +659,7 @@ fun ChatScreen(
             LazyListState(firstVisibleItemIndex = initialIdx)
         }
     }
+    val hazeState = rememberHazeState()
 
     // Determine whether user is scrolled near the bottom (within the last item)
     val isAtBottom by remember(listState) {
@@ -1632,10 +1636,14 @@ fun ChatScreen(
 
                                 LazyColumn(
                                     state = listState,
-                                    modifier = Modifier.fillMaxSize().then(chatBounce.modifier),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .chatListFadeMask(topFadeHeight = 24.dp, bottomFadeHeight = 56.dp)
+                                        .hazeSource(state = hazeState)
+                                        .then(chatBounce.modifier),
                                     contentPadding = PaddingValues(
                                         top = 64.dp + statusBarsTop,
-                                        bottom = 110.dp + effectiveBottom
+                                        bottom = 88.dp + effectiveBottom
                                     ),
                                     userScrollEnabled = chatBounce.userScrollEnabled,
                                     overscrollEffect = chatBounce.overscrollEffect
@@ -1813,52 +1821,6 @@ fun ChatScreen(
                         }
                     }
 
-                    // Floating Scroll Up / Scroll Down Button (Instant Movement)
-                    val showUpArrow = showScrollButton && scrollDirection == ScrollDirection.UP && !isAtTop
-                    val showDownArrow = showScrollButton && scrollDirection == ScrollDirection.DOWN && !isAtBottom
-                    val isVisible = (showUpArrow || showDownArrow) && feedItems.size > 2
-                                            
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = isVisible,
-                        enter = fadeIn() + scaleIn(initialScale = 0.8f),
-                        exit = fadeOut() + scaleOut(targetScale = 0.8f),
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = 16.dp, bottom = 12.dp)
-                    ) {
-                        Surface(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .clickable {
-                                    showScrollButton = false
-                                    scope.launch {
-                                        if (showUpArrow) {
-                                            listState.scrollToItem(0)
-                                        } else {
-                                            listState.scrollToItem(feedItems.size)
-                                        }
-                                    }
-                                },
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surface,
-                            tonalElevation = 6.dp,
-                            shadowElevation = 6.dp,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                Icon(
-                                    imageVector = if (showUpArrow) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                    contentDescription = if (showUpArrow) "Jump to Top" else "Jump to Bottom",
-                                    tint = ClaudeTerracotta,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-                    }
 
                     // Floating Slash Commands & Skills Autocomplete Suggestions
                     val slash = slashTrigger
@@ -2188,21 +2150,14 @@ fun ChatScreen(
                     )
                 }
 
-                // 3. Overlaid Frosted Glass Blur Bottom Controls & Composer
+                // 3. Floating Bottom Controls & Floating Input Pill (No full-width background bar)
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                0.00f to Color.White.copy(alpha = 0.0f),
-                                0.30f to Color.White.copy(alpha = 0.65f),
-                                0.60f to Color.White.copy(alpha = 0.95f),
-                                1.00f to Color.White
-                            )
-                        )
+                        .imePadding()
                         .navigationBarsPadding()
-                        .windowInsetsPadding(WindowInsets.imeAnimationTarget)
+                        .padding(bottom = 8.dp)
                 ) {
 
                 // Agent prompts docked above the input (both agents): permission requests, then questions
@@ -2310,8 +2265,41 @@ fun ChatScreen(
                     }
                 }
 
-                // Chat Input Bar with Bottom Model & Thinking Selector Pills (Claude Android Style)
+                // Scroll-To-Bottom Button: 40dp circle, centered horizontally, 12dp above pill
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = !isAtBottom && feedItems.isNotEmpty(),
+                    enter = fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.85f, animationSpec = tween(150)),
+                    exit = fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.85f, animationSpec = tween(150)),
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 12.dp)
+                ) {
+                    Surface(
+                        onClick = {
+                            scope.launch {
+                                listState.animateScrollToItem(feedItems.size)
+                            }
+                        },
+                        shape = CircleShape,
+                        color = if (isDarkTheme) Color(0xFF2C2C2E) else Color.White,
+                        shadowElevation = 4.dp,
+                        border = BorderStroke(0.5.dp, if (isDarkTheme) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f)),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Scroll to bottom",
+                                tint = if (isDarkTheme) Color(0xFFE5E5E7) else Color(0xFF3C3C3E),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Chat Input Bar as a Floating Translucent Blurred Pill
                 ChatInputBar(
+                    hazeState = hazeState,
                     isOnline = if (isOpenCodeChat) !openCodeState.isBlocking else if (isClaudeChat) !claudeState.isBlocking else systemConnectionState.canSend,
                     isAuth = if (isOpenCodeChat) true else if (isClaudeChat) claudeChatState != com.example.gemini.data.agent.claude.ClaudeStatus.SIGNED_OUT && claudeChatState != com.example.gemini.data.agent.claude.ClaudeStatus.SIGNING_IN else systemConnectionState.isAuth,
                     offlineMessage = if (isOpenCodeChat) when (openCodeState) {

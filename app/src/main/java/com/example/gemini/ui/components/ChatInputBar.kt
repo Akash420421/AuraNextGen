@@ -12,6 +12,10 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -45,6 +49,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -53,11 +58,17 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.colorResource
 import android.net.Uri
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import com.example.gemini.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -185,6 +196,7 @@ fun ChatInputBar(
     queuedMessages: List<com.example.gemini.domain.model.QueuedMessage> = emptyList(),
     onSendQueuedNow: (String) -> Unit = {},
     onDeleteQueued: (String) -> Unit = {},
+    hazeState: HazeState? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -598,14 +610,19 @@ fun ChatInputBar(
         )
     }
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.background
+    val pillBgColor = colorResource(R.color.input_pill_bg)
+    val pillBorderColor = colorResource(R.color.input_pill_border)
+    val pillShape = RoundedCornerShape(28.dp)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.BottomCenter
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             QueuedMessagesCard(
                 messages = queuedMessages,
@@ -614,16 +631,41 @@ fun ChatInputBar(
                 modifier = Modifier.padding(bottom = 6.dp)
             )
 
-            // Minimal rounded input card matching reference design
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(32.dp),
-                color = if (isDark) com.example.gemini.theme.AppColors.card else Color.White,
-                border = BorderStroke(
-                    1.dp,
-                    if (isDark) Color.White.copy(alpha = 0.08f) else Color(0xFFE5E5EA)
-                ),
-                shadowElevation = 1.dp
+            // FLOATING FROSTED GLASS TRANSLUCENT PILL
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 56.dp)
+                    .shadow(
+                        elevation = 6.dp,
+                        shape = pillShape,
+                        clip = false,
+                        ambientColor = Color.Black.copy(alpha = 0.08f),
+                        spotColor = Color.Black.copy(alpha = 0.12f)
+                    )
+                    .then(
+                        if (hazeState != null) {
+                            Modifier.hazeEffect(
+                                state = hazeState,
+                                style = HazeStyle(
+                                    blurRadius = 24.dp,
+                                    tint = HazeTint(pillBgColor)
+                                )
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .background(
+                        color = pillBgColor,
+                        shape = pillShape
+                    )
+                    .border(
+                        width = 0.5.dp,
+                        color = pillBorderColor,
+                        shape = pillShape
+                    )
+                    .clip(pillShape)
             ) {
                 if (isRecordingAudio) {
                     val infiniteTransition = rememberInfiniteTransition(label = "recPulse")
@@ -1062,35 +1104,36 @@ fun ChatInputBar(
                         }
                     }
 
-                    // 3. Bottom Action Row: [+] [Model Chip] ... [Voice / Send / Stop Button]
+                    // 3. Main Floating Pill Row: [+] [Text Field] [Mic (40dp)] [Action Button (40dp solid black / waveform / send)]
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 4.dp, end = 4.dp, bottom = 2.dp, top = 2.dp),
+                            .defaultMinSize(minHeight = 56.dp)
+                            .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Left: Circular Add Button [+]
+                        // Left: Circular Add Button [+] (40dp, light gray fill, 8dp from left edge)
                         Surface(
                             onClick = onAttachClick,
                             shape = CircleShape,
-                            color = if (isDark) Color(0xFF3A3A3C) else Color(0xFFF2F2F7),
-                            modifier = Modifier.size(42.dp)
+                            color = colorResource(R.color.input_pill_button_bg),
+                            modifier = Modifier.size(40.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Outlined.Add,
                                     contentDescription = "Add attachments",
-                                    tint = if (isDark) Color.White else Color(0xFF2C2C2E),
-                                    modifier = Modifier.size(20.dp)
+                                    tint = colorResource(R.color.input_pill_button_tint),
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
 
-                        // Center: Text Input Field with placeholder "Ask anything"
+                        // Center: Text Input Field with placeholder in gray, 16sp, blinking cursor
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(horizontal = 6.dp),
+                                .padding(horizontal = 12.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             TextField(
@@ -1098,8 +1141,8 @@ fun ChatInputBar(
                                 placeholder = {
                                     Text(
                                         text = "Ask anything",
-                                        fontSize = 15.5.sp,
-                                        color = Color(0xFF8E8E93)
+                                        fontSize = 16.sp,
+                                        color = colorResource(R.color.input_pill_placeholder)
                                     )
                                 },
                                 modifier = Modifier
@@ -1116,20 +1159,20 @@ fun ChatInputBar(
                                     cursorColor = if (isDark) Color.White else Color(0xFF1A1A1A)
                                 ),
                                 textStyle = TextStyle(
-                                    fontSize = 15.5.sp,
-                                    lineHeight = 21.sp
+                                    fontSize = 16.sp,
+                                    lineHeight = 22.sp
                                 ),
                                 lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 5),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default)
                             )
                         }
 
-                        // Right: [Mic] [Send ↑]
+                        // Right: [Mic (40dp)] [Action Button (40dp solid black / waveform / send)]
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // 1. Microphone / Audio Record Button (One clean button)
+                            // 1. Microphone / Audio Record Button (40dp, light gray fill, outline mic icon)
                             if (voiceEnabled) {
                                 Surface(
                                     onClick = {
@@ -1141,32 +1184,24 @@ fun ChatInputBar(
                                         }
                                     },
                                     shape = CircleShape,
-                                    color = Color.Transparent,
-                                    modifier = Modifier.size(38.dp)
+                                    color = colorResource(R.color.input_pill_button_bg),
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = Icons.Rounded.Mic,
                                             contentDescription = if (voiceNotesAsText) "Record and transcribe" else "Record voice note",
-                                            tint = if (isDark) Color.White.copy(alpha = 0.85f) else Color(0xFF2C2C2E),
-                                            modifier = Modifier.size(23.dp)
+                                            tint = colorResource(R.color.input_pill_button_tint),
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
                                 }
                             }
 
-                            // 2. Send Button (Proper send button replacing duplicate mic)
+                            // 2. Action Button (40dp solid black in light mode, white in dark mode)
                             val canSend = hasText || attachments.isNotEmpty()
-                            val sendBtnBg = when {
-                                isStreaming && !canSend -> if (isDark) Color.White else Color(0xFF1A1A1A)
-                                canSend -> if (isDark) Color.White else Color(0xFF1A1A1A)
-                                else -> if (isDark) Color(0xFF3A3A3C) else Color(0xFFF2F2F7)
-                            }
-                            val sendIconTint = when {
-                                isStreaming && !canSend -> if (isDark) Color.Black else Color.White
-                                canSend -> if (isDark) Color.Black else Color.White
-                                else -> Color(0xFFA0A0A8)
-                            }
+                            val actionBg = colorResource(R.color.input_pill_action_bg)
+                            val actionTint = colorResource(R.color.input_pill_action_tint)
 
                             Surface(
                                 onClick = {
@@ -1187,19 +1222,52 @@ fun ChatInputBar(
                                         }
                                         onSendMessage(trimmed)
                                         textFieldState.clearText()
+                                    } else {
+                                        if (voiceEnabled) {
+                                            if (voiceNotesAsText) {
+                                                startAutoTranscribe()
+                                            } else {
+                                                recordMode = AudioRecordMode.VOICE_NOTE
+                                                triggerMicClick()
+                                            }
+                                        }
                                     }
                                 },
                                 shape = CircleShape,
-                                color = sendBtnBg,
-                                modifier = Modifier.size(42.dp)
+                                color = actionBg,
+                                modifier = Modifier.size(40.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = if (isStreaming && !canSend) Icons.Default.Stop else Icons.Default.ArrowUpward,
-                                        contentDescription = if (isStreaming && !canSend) "Stop" else "Send message",
-                                        tint = sendIconTint,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    AnimatedContent(
+                                        targetState = when {
+                                            isStreaming && !canSend -> "stop"
+                                            canSend -> "send"
+                                            else -> "waveform"
+                                        },
+                                        transitionSpec = {
+                                            fadeIn(animationSpec = tween(150)) togetherWith fadeOut(animationSpec = tween(150))
+                                        },
+                                        label = "pillActionIcon"
+                                    ) { state ->
+                                        when (state) {
+                                            "stop" -> Icon(
+                                                imageVector = Icons.Default.Stop,
+                                                contentDescription = "Stop",
+                                                tint = actionTint,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            "send" -> Icon(
+                                                imageVector = Icons.Default.ArrowUpward,
+                                                contentDescription = "Send message",
+                                                tint = actionTint,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            else -> ClaudeWaveformIcon(
+                                                modifier = Modifier.size(18.dp),
+                                                color = actionTint
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

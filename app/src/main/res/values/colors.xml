@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="top_bar_icon_tint">#3C3C3E</color>
+    <!-- Floating Frosted Glass Input Pill Tokens (Light Mode) -->
+    <color name="input_pill_bg">#D9FFFFFF</color>
+    <color name="input_pill_border">#14000000</color>
+    <color name="input_pill_button_bg">#ECEBE8</color>
+    <color name="input_pill_button_tint">#3C3C3E</color>
+    <color name="input_pill_action_bg">#111827</color>
+    <color name="input_pill_action_tint">#FFFFFF</color>
+    <color name="input_pill_placeholder">#6B6B6B</color>
 </resources>
