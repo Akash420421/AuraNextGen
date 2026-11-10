@@ -21,15 +21,12 @@ import androidx.compose.ui.unit.sp
 import com.example.gemini.theme.ClaudeTerracotta
 import com.example.gemini.theme.GeminiBlue
 
-import androidx.compose.material.icons.outlined.AutoAwesome
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttachmentSelectorBottomSheet(
     onPickImage: () -> Unit,
     onPickFile: () -> Unit,
-    onSelectModel: (() -> Unit)? = null,
-    currentModelName: String? = null,
+    onPickFromFiles: () -> Unit,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(
@@ -58,7 +55,7 @@ fun AttachmentSelectorBottomSheet(
                 icon = Icons.Outlined.Image,
                 iconColor = ClaudeTerracotta,
                 title = "Photo / Image",
-                subtitle = "Attach an image for multimodal vision & analysis",
+                subtitle = "The model sees the image directly. Big photos are shrunk first.",
                 onClick = {
                     onDismiss()
                     onPickImage()
@@ -71,27 +68,25 @@ fun AttachmentSelectorBottomSheet(
                 icon = Icons.Outlined.Description,
                 iconColor = GeminiBlue,
                 title = "Document / File",
-                subtitle = "Attach a PDF, text, or binary file from your device",
+                subtitle = "Copied from your phone to the agent's machine. Avoid large files here: copying takes time and storage. Use \"From Files\" for big files.",
                 onClick = {
                     onDismiss()
                     onPickFile()
                 }
             )
 
-            if (onSelectModel != null) {
-                Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-                AttachmentOptionRow(
-                    icon = Icons.Outlined.AutoAwesome,
-                    iconColor = Color(0xFFD97706),
-                    title = if (!currentModelName.isNullOrBlank()) "Model: $currentModelName" else "Switch AI Model",
-                    subtitle = "Change active LLM model or thinking preference",
-                    onClick = {
-                        onDismiss()
-                        onSelectModel()
-                    }
-                )
-            }
+            AttachmentOptionRow(
+                icon = Icons.Outlined.Folder,
+                iconColor = ClaudeTerracotta,
+                title = "From Files",
+                subtitle = "Attach any file, any size: nothing is copied. The agent opens the original file, so it could change it (it is told not to, and usually won't).",
+                onClick = {
+                    onDismiss()
+                    onPickFromFiles()
+                }
+            )
         }
     }
 }
