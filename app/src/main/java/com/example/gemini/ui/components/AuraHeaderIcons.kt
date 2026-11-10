@@ -65,13 +65,13 @@ fun StaggeredMenuIcon(
 @Composable
 fun NewChatIcon(
     modifier: Modifier = Modifier,
-    tint: Color = colorResource(R.color.top_bar_icon_tint),
+    tint: Color = if (com.example.gemini.theme.isAppInDarkTheme()) Color(0xFFE5E5E7) else Color(0xFF3C3C3E),
     enabled: Boolean = true
 ) {
     Icon(
         painter = painterResource(R.drawable.ic_new_chat),
         contentDescription = "New chat",
-        tint = if (enabled) tint else tint.copy(alpha = 0.38f),
+        tint = if (enabled) tint else tint.copy(alpha = 0.45f),
         modifier = modifier.size(24.dp)
     )
 }

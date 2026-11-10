@@ -164,13 +164,13 @@ object LocalEnvironmentManager {
         _installerLogs.value = emptyList()
     }
 
-    fun getPrefixDir(context: Context): File = File(context.filesDir, "usr")
-    fun getBinDir(context: Context): File = File(getPrefixDir(context), "bin")
-    fun getLibDir(context: Context): File = File(getPrefixDir(context), "lib")
-    fun getEtcDir(context: Context): File = File(getPrefixDir(context), "etc")
-    fun getTmpDir(context: Context): File = File(getPrefixDir(context), "tmp")
-    fun getHomeDir(context: Context): File = File(context.filesDir, "home")
-    fun getProjectsDir(context: Context): File = File(getHomeDir(context), "projects")
+    fun getPrefixDir(context: Context): File = File(context.filesDir, "usr").apply { if (!exists()) mkdirs() }
+    fun getBinDir(context: Context): File = File(getPrefixDir(context), "bin").apply { if (!exists()) mkdirs() }
+    fun getLibDir(context: Context): File = File(getPrefixDir(context), "lib").apply { if (!exists()) mkdirs() }
+    fun getEtcDir(context: Context): File = File(getPrefixDir(context), "etc").apply { if (!exists()) mkdirs() }
+    fun getTmpDir(context: Context): File = File(context.filesDir, "tmp").apply { if (!exists()) mkdirs() }
+    fun getHomeDir(context: Context): File = File(context.filesDir, "home").apply { if (!exists()) mkdirs() }
+    fun getProjectsDir(context: Context): File = File(getHomeDir(context), "projects").apply { if (!exists()) mkdirs() }
     fun getUbuntuRootDir(context: Context): File = File(context.filesDir, "ubuntu")
     fun isTermuxPackage(context: Context): Boolean {
         val pkg = context.packageName

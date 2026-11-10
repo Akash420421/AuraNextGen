@@ -611,8 +611,12 @@ fun ChatInputBar(
         )
     }
 
-    val pillBgColor = colorResource(R.color.input_pill_bg)
-    val pillBorderColor = colorResource(R.color.input_pill_border)
+    val isDark = isAppInDarkTheme()
+    val pillBgColor = if (isDark) Color(0xFF242426) else Color.White
+    val pillBorderColor = if (isDark) Color(0x2AFFFFFF) else Color(0x1F000000)
+    val pillButtonBg = if (isDark) Color(0xFF2C2C2E) else Color(0xFFECEBE8)
+    val pillButtonTint = if (isDark) Color(0xFFE5E5E7) else Color(0xFF3C3C3E)
+    val pillPlaceholderColor = if (isDark) Color(0xFF9E9EA0) else Color(0xFF6B6B6B)
     val pillShape = RoundedCornerShape(28.dp)
 
     Box(
@@ -1116,14 +1120,14 @@ fun ChatInputBar(
                         Surface(
                             onClick = onAttachClick,
                             shape = CircleShape,
-                            color = colorResource(R.color.input_pill_button_bg),
+                            color = pillButtonBg,
                             modifier = Modifier.size(40.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Outlined.Add,
                                     contentDescription = "Add attachments",
-                                    tint = colorResource(R.color.input_pill_button_tint),
+                                    tint = pillButtonTint,
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
@@ -1142,7 +1146,7 @@ fun ChatInputBar(
                                     Text(
                                         text = "Ask anything",
                                         fontSize = 16.sp,
-                                        color = colorResource(R.color.input_pill_placeholder)
+                                        color = pillPlaceholderColor
                                     )
                                 },
                                 modifier = Modifier
@@ -1184,24 +1188,32 @@ fun ChatInputBar(
                                         }
                                     },
                                     shape = CircleShape,
-                                    color = colorResource(R.color.input_pill_button_bg),
+                                    color = pillButtonBg,
                                     modifier = Modifier.size(40.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = Icons.Rounded.Mic,
                                             contentDescription = if (voiceNotesAsText) "Record and transcribe" else "Record voice note",
-                                            tint = colorResource(R.color.input_pill_button_tint),
+                                            tint = pillButtonTint,
                                             modifier = Modifier.size(22.dp)
                                         )
                                     }
                                 }
                             }
 
-                            // 2. Action Button (40dp solid black in light mode, white in dark mode)
+                            // 2. Action Button (40dp solid, purple send on text, waveform on empty)
                             val canSend = hasText || attachments.isNotEmpty()
-                            val actionBg = colorResource(R.color.input_pill_action_bg)
-                            val actionTint = colorResource(R.color.input_pill_action_tint)
+                            val actionBg = when {
+                                canSend -> Color(0xFF7C3AED)
+                                isStreaming -> if (isDark) Color.White else Color(0xFF111827)
+                                else -> if (isDark) Color.White else Color(0xFF111827)
+                            }
+                            val actionTint = when {
+                                canSend -> Color.White
+                                isStreaming -> if (isDark) Color.Black else Color.White
+                                else -> if (isDark) Color(0xFF111827) else Color.White
+                            }
 
                             Surface(
                                 onClick = {

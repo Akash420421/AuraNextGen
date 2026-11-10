@@ -481,10 +481,10 @@ object LocalServerManager {
             }
         }
 
-        // 3. Send pkill to terminate any child tree processes (agy daemon, child node processes)
+        // 3. Send safe termination signal to any child processes
         if (session != null && !session.isExited.value) {
             try {
-                session.write("pkill -f gemini-server; pkill -f 'server -f'; pkill -f 'agy '\n")
+                session.write("(command -v pkill >/dev/null 2>&1 && pkill -f 'gemini-server|server -f|agy ') 2>/dev/null || true\n")
             } catch (_: Exception) {
             }
         }

@@ -103,13 +103,13 @@ fun GeminiTheme(
         if (activity != null && activity !is com.example.gemini.ui.bubble.FloatingChatActivity) {
             SideEffect {
                 val window = activity.window
-                window.statusBarColor = colorScheme.background.toArgb()
-                window.navigationBarColor = colorScheme.background.toArgb()
+                window.statusBarColor = android.graphics.Color.TRANSPARENT
+                window.navigationBarColor = android.graphics.Color.TRANSPARENT
                 // what shows behind the app during transitions: the theme, not the white splash layer
                 window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(colorScheme.background.toArgb()))
                 val insetsController = WindowCompat.getInsetsController(window, view)
-                insetsController.isAppearanceLightStatusBars = true
-                insetsController.isAppearanceLightNavigationBars = true
+                insetsController.isAppearanceLightStatusBars = !effectiveDark
+                insetsController.isAppearanceLightNavigationBars = !effectiveDark
             }
         }
     }

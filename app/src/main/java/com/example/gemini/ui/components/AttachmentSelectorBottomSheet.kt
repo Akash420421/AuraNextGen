@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -35,11 +34,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.gemini.R
+import com.example.gemini.theme.isAppInDarkTheme
 
 /**
  * Premium, minimal "Add to chat" attachment bottom sheet styled like the Claude app.
  * Features 3 quick action tiles (Camera, Photos, Files) and a clean Model row.
+ * Adheres strictly to the active app theme (Clean White Theme when in Light mode).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,10 +51,20 @@ fun AttachmentSelectorBottomSheet(
     currentModelName: String? = null,
     onDismiss: () -> Unit
 ) {
+    val isDark = isAppInDarkTheme()
+    val sheetBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFF8F8F6)
+    val cardBg = if (isDark) Color(0xFF2A2A2C) else Color(0xFFFFFFFF)
+    val circleBg = if (isDark) Color(0xFF3A3A3C) else Color(0xFFEDEDEB)
+    val iconTint = if (isDark) Color(0xFFE5E5E7) else Color(0xFF2B2B2B)
+    val textPrimary = if (isDark) Color(0xFFE5E5E7) else Color(0xFF1A1A1A)
+    val textSecondary = if (isDark) Color(0xFF9E9EA2) else Color(0xFF7A7A7E)
+    val dragHandleColor = if (isDark) Color(0xFF48484A) else Color(0xFFC9C9CC)
+    val chevronTint = if (isDark) Color(0xFF8E8E93) else Color(0xFF9A9A9E)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = colorResource(id = R.color.attach_sheet_bg),
+        containerColor = sheetBg,
         scrimColor = Color.Black.copy(alpha = 0.32f),
         tonalElevation = 0.dp,
         dragHandle = {
@@ -68,7 +78,7 @@ fun AttachmentSelectorBottomSheet(
                     modifier = Modifier
                         .size(width = 36.dp, height = 4.dp)
                         .clip(CircleShape)
-                        .background(colorResource(id = R.color.attach_sheet_drag_handle))
+                        .background(dragHandleColor)
                 )
             }
         },
@@ -100,7 +110,7 @@ fun AttachmentSelectorBottomSheet(
                     Icon(
                         imageVector = Icons.Outlined.Close,
                         contentDescription = "Close",
-                        tint = colorResource(id = R.color.attach_sheet_icon_tint),
+                        tint = iconTint,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -109,7 +119,7 @@ fun AttachmentSelectorBottomSheet(
                     text = "Add to chat",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Medium,
-                    color = colorResource(id = R.color.attach_sheet_text_primary),
+                    color = textPrimary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f)
                 )
@@ -127,6 +137,10 @@ fun AttachmentSelectorBottomSheet(
                 QuickActionTile(
                     label = "Camera",
                     icon = Icons.Outlined.PhotoCamera,
+                    cardBg = cardBg,
+                    circleBg = circleBg,
+                    iconTint = iconTint,
+                    textPrimary = textPrimary,
                     onClick = {
                         onDismiss()
                         onTakePhoto()
@@ -137,6 +151,10 @@ fun AttachmentSelectorBottomSheet(
                 QuickActionTile(
                     label = "Photos",
                     icon = Icons.Outlined.Image,
+                    cardBg = cardBg,
+                    circleBg = circleBg,
+                    iconTint = iconTint,
+                    textPrimary = textPrimary,
                     onClick = {
                         onDismiss()
                         onPickImage()
@@ -147,6 +165,10 @@ fun AttachmentSelectorBottomSheet(
                 QuickActionTile(
                     label = "Files",
                     icon = Icons.Outlined.UploadFile,
+                    cardBg = cardBg,
+                    circleBg = circleBg,
+                    iconTint = iconTint,
+                    textPrimary = textPrimary,
                     onClick = {
                         onDismiss()
                         onPickFile()
@@ -169,6 +191,12 @@ fun AttachmentSelectorBottomSheet(
                     title = "Model",
                     subtitle = subtitleText,
                     icon = Icons.Outlined.AutoAwesome,
+                    cardBg = cardBg,
+                    circleBg = circleBg,
+                    iconTint = iconTint,
+                    textPrimary = textPrimary,
+                    textSecondary = textSecondary,
+                    chevronTint = chevronTint,
                     onClick = {
                         onDismiss()
                         onSelectModel()
@@ -187,6 +215,10 @@ fun AttachmentSelectorBottomSheet(
 private fun QuickActionTile(
     label: String,
     icon: ImageVector,
+    cardBg: Color,
+    circleBg: Color,
+    iconTint: Color,
+    textPrimary: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -205,7 +237,7 @@ private fun QuickActionTile(
             onClick()
         },
         shape = RoundedCornerShape(24.dp),
-        color = colorResource(id = R.color.attach_sheet_card_bg),
+        color = cardBg,
         interactionSource = interactionSource,
         modifier = modifier
             .graphicsLayer {
@@ -226,13 +258,13 @@ private fun QuickActionTile(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(colorResource(id = R.color.attach_sheet_circle_bg)),
+                    .background(circleBg),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = colorResource(id = R.color.attach_sheet_icon_tint),
+                    tint = iconTint,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -243,7 +275,7 @@ private fun QuickActionTile(
                 text = label,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Normal,
-                color = colorResource(id = R.color.attach_sheet_text_primary),
+                color = textPrimary,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -261,6 +293,12 @@ private fun AttachmentListRow(
     title: String,
     subtitle: String,
     icon: ImageVector,
+    cardBg: Color,
+    circleBg: Color,
+    iconTint: Color,
+    textPrimary: Color,
+    textSecondary: Color,
+    chevronTint: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -279,7 +317,7 @@ private fun AttachmentListRow(
             onClick()
         },
         shape = RoundedCornerShape(24.dp),
-        color = colorResource(id = R.color.attach_sheet_card_bg),
+        color = cardBg,
         interactionSource = interactionSource,
         modifier = modifier
             .fillMaxWidth()
@@ -300,13 +338,13 @@ private fun AttachmentListRow(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(colorResource(id = R.color.attach_sheet_circle_bg)),
+                    .background(circleBg),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = colorResource(id = R.color.attach_sheet_icon_tint),
+                    tint = iconTint,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -320,14 +358,14 @@ private fun AttachmentListRow(
                     text = title,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Normal,
-                    color = colorResource(id = R.color.attach_sheet_text_primary)
+                    color = textPrimary
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = subtitle,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
-                    color = colorResource(id = R.color.attach_sheet_text_secondary),
+                    color = textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -338,7 +376,7 @@ private fun AttachmentListRow(
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = null,
-                tint = colorResource(id = R.color.attach_sheet_chevron_tint),
+                tint = chevronTint,
                 modifier = Modifier.size(20.dp)
             )
         }

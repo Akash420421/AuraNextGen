@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="top_bar_icon_tint">#E5E5E7</color>
+    <color name="top_bar_icon_tint">#3C3C3E</color>
     <!-- Floating Frosted Glass Input Pill Tokens (Dark Mode) -->
     <color name="input_pill_bg">#D91F1F21</color>
     <color name="input_pill_border">#1FFFFFFF</color>
