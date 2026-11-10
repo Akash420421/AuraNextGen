@@ -251,6 +251,17 @@ class MainActivity : ComponentActivity() {
                                 if (previousViewMode != currentViewMode && previousViewMode != AppViewMode.BROWSER) previousViewMode else AppViewMode.CHAT
                         }
 
+                        var lastChatBackPressTime by remember { mutableLongStateOf(0L) }
+                        BackHandler(enabled = currentViewMode == AppViewMode.CHAT) {
+                            val now = System.currentTimeMillis()
+                            if (now - lastChatBackPressTime < 2000L) {
+                                (context as? android.app.Activity)?.finish()
+                            } else {
+                                lastChatBackPressTime = now
+                                com.example.gemini.ui.components.AppToastHelper.showToast("Press back again to exit")
+                            }
+                        }
+
                         val terminalSessions by com.example.gemini.data.local.LocalTerminalManager.sessions.collectAsState()
                         var hasEverOpenedTerminal by remember { mutableStateOf(false) }
                         if (currentViewMode == AppViewMode.TERMINAL) {

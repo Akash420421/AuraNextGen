@@ -858,7 +858,11 @@ fun ChatScreen(
     LaunchedEffect(userSentMessageTrigger) {
         if (userSentMessageTrigger > 0 && feedItems.isNotEmpty()) {
             shouldAutoScroll = true
-            listState.scrollToItem(feedItems.size)
+            try {
+                listState.scrollToItem(maxOf(0, feedItems.size - 1))
+            } catch (e: Exception) {
+                Log.w("ChatScreen", "Scroll to bottom failed: ${e.message}")
+            }
         }
     }
 
@@ -2308,7 +2312,13 @@ fun ChatScreen(
                     Surface(
                         onClick = {
                             scope.launch {
-                                listState.animateScrollToItem(feedItems.size)
+                                try {
+                                    if (feedItems.isNotEmpty()) {
+                                        listState.animateScrollToItem(maxOf(0, feedItems.size - 1))
+                                    }
+                                } catch (e: Exception) {
+                                    Log.w("ChatScreen", "Animate scroll failed: ${e.message}")
+                                }
                             }
                         },
                         shape = CircleShape,
@@ -2359,26 +2369,34 @@ fun ChatScreen(
                     isStreaming = isActivelyRunning,
                     isBackgroundActive = isBackgroundActive,
                     onSendMessage = { text ->
-                        val appCmd = if (isClaudeChat && attachments.isEmpty()) claudeBackend.appCommand(text) else null
-                        val unreadable = if (isClaudeChat) attachments.filter { a ->
-                            a.isAudio || a.mimeType?.startsWith("audio/") == true || a.mimeType?.startsWith("video/") == true
-                        } else emptyList()
-                        if (unreadable.isNotEmpty()) {
-                            // Claude models cannot read audio or video: say so instead of sending a file it would reject
+                        try {
+                            val appCmd = if (isClaudeChat && attachments.isEmpty()) claudeBackend.appCommand(text) else null
+                            val unreadable = if (isClaudeChat) attachments.filter { a ->
+                                a.isAudio || a.mimeType?.startsWith("audio/") == true || a.mimeType?.startsWith("video/") == true
+                            } else emptyList()
+                            if (unreadable.isNotEmpty()) {
+                                // Claude models cannot read audio or video: say so instead of sending a file it would reject
+                                com.example.gemini.ui.components.AppToastHelper.showToast(
+                                    "Claude can't read audio or video files. Remove them, or tap the mic to dictate instead.",
+                                    com.example.gemini.ui.components.ChatToastType.ERROR
+                                )
+                                return@ChatInputBar
+                            }
+                            if (appCmd != null) {
+                                handleClaudeCommand(appCmd)
+                            } else {
+                                viewModel.sendMessage(text)
+                                userSentMessageTrigger++
+                            }
+                            viewModel.clearDraft(activeConversationKey)
+                            inputState.clearText()
+                        } catch (e: Throwable) {
+                            Log.e("ChatScreen", "Error sending message", e)
                             com.example.gemini.ui.components.AppToastHelper.showToast(
-                                "Claude can't read audio or video files. Remove them, or tap the mic to dictate instead.",
+                                "Error sending: ${e.message}",
                                 com.example.gemini.ui.components.ChatToastType.ERROR
                             )
-                            return@ChatInputBar
                         }
-                        if (appCmd != null) {
-                            handleClaudeCommand(appCmd)
-                        } else {
-                            viewModel.sendMessage(text)
-                            userSentMessageTrigger++
-                        }
-                        viewModel.clearDraft(activeConversationKey)
-                        inputState.clearText()
                     },
                     onStopStreaming = { showStopConfirmDialog = true },
                     attachments = attachments,
