@@ -17,7 +17,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "AppUpdateManager"
-private const val DEFAULT_VERSION_URL = "https://raw.githubusercontent.com/santoshkurmi/antigem/master/version.json"
+private const val DEFAULT_VERSION_URL = "https://raw.githubusercontent.com/Akash420421/AuraNextGen/master/version.json"
 
 data class AppUpdateInfo(
     val versionCode: Int,

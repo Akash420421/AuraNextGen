@@ -1,8 +1,12 @@
 {
-  "version_code": 129,
-  "version_name": "1.2.6",
+  "version_code": 130,
+  "version_name": "1.2.7",
   "min_supported_version_code": 1,
   "changelog": [
+    "Fix: Removed intrusive TelemetryDeck 'Unofficial build' warning toast",
+    "Fix: Resolved auto-back and translucent activity finish hijack on startup and authentication",
+    "Fix: Enabled Android 14 OnBackInvokedCallback predictive back dispatcher",
+    "Fix: Centralized updater URL to AuraNextGen repository",
     "Antigravity live voice calling integration with time-based dynamic greeting and real-time audio reactivity",
     "Single-tap mic mute (background call persistence) and double-tap end call gestures on Tap to Start",
     "Redesigned top navigation header with clean 3-line hamburger menu and overlapping double chat bubble with plus icon",
