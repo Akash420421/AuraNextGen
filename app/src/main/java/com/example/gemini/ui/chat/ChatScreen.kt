@@ -53,7 +53,7 @@ import androidx.compose.ui.graphics.Brush
 import com.example.gemini.ui.components.StaggeredMenuIcon
 import com.example.gemini.ui.components.NewChatIcon
 import com.example.gemini.ui.components.chatListFadeMask
-import dev.chrisbanes.haze.rememberHazeState
+import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -659,7 +659,7 @@ fun ChatScreen(
             LazyListState(firstVisibleItemIndex = initialIdx)
         }
     }
-    val hazeState = rememberHazeState()
+    val hazeState = remember { HazeState() }
 
     // Determine whether user is scrolled near the bottom (within the last item)
     val isAtBottom by remember(listState) {
