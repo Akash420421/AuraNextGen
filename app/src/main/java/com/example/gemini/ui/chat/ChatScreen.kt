@@ -511,6 +511,37 @@ fun ChatScreen(
             viewModel.addAttachmentsFromUris(uris, context)
         }
     }
+
+    var cameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success) {
+            cameraPhotoUri?.let { uri ->
+                viewModel.addAttachmentsFromUris(listOf(uri), context)
+            }
+        }
+    }
+
+    val launchCameraCapture = {
+        try {
+            val photoDir = File(context.cacheDir, "camera_photos").apply { mkdirs() }
+            val photoFile = File(photoDir, "IMG_${System.currentTimeMillis()}.jpg")
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+            cameraPhotoUri = uri
+            cameraLauncher.launch(uri)
+        } catch (e: Exception) {
+            android.util.Log.e("ChatScreen", "Failed to launch camera: ${e.message}", e)
+            com.example.gemini.ui.components.AppToastHelper.showToast(
+                "Unable to open camera: ${e.message}",
+                com.example.gemini.ui.components.ChatToastType.ERROR
+            )
+        }
+    }
     var activeConversationKey by remember { mutableStateOf(currentConv?.id ?: "new") }
     var homeMode by rememberSaveable { mutableStateOf("chat") }
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(initialPage = if (homeMode == "voice") 1 else 0) { 2 }
@@ -2980,6 +3011,7 @@ fun ChatScreen(
     // Attachment Selector Bottom Sheet
     if (showAttachmentSelector) {
         AttachmentSelectorBottomSheet(
+            onTakePhoto = launchCameraCapture,
             onPickImage = { photoPickerLauncher.launch("image/*") },
             onPickFile = { filePickerLauncher.launch("*/*") },
             onSelectModel = { showModelSelector = true },

@@ -1,31 +1,50 @@
 package com.example.gemini.ui.components
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.gemini.theme.ClaudeTerracotta
-import com.example.gemini.theme.GeminiBlue
+import com.example.gemini.R
 
-import androidx.compose.material.icons.outlined.AutoAwesome
-
+/**
+ * Premium, minimal "Add to chat" attachment bottom sheet styled like the Claude app.
+ * Features 3 quick action tiles (Camera, Photos, Files) and a clean Model row.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttachmentSelectorBottomSheet(
+    onTakePhoto: () -> Unit = {},
     onPickImage: () -> Unit,
     onPickFile: () -> Unit,
     onSelectModel: (() -> Unit)? = null,
@@ -35,57 +54,121 @@ fun AttachmentSelectorBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = colorResource(id = R.color.attach_sheet_bg),
+        scrimColor = Color.Black.copy(alpha = 0.32f),
         tonalElevation = 0.dp,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp, bottom = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 36.dp, height = 4.dp)
+                        .clip(CircleShape)
+                        .background(colorResource(id = R.color.attach_sheet_drag_handle))
+                )
+            }
+        },
+        shape = RoundedCornerShape(
+            topStart = 28.dp,
+            topEnd = 28.dp,
+            bottomStart = 0.dp,
+            bottomEnd = 0.dp
+        )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp)
-                .padding(bottom = 24.dp)
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp)
         ) {
-            Text(
-                text = "Add to Chat",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(14.dp))
-
-            AttachmentOptionRow(
-                icon = Icons.Outlined.Image,
-                iconColor = ClaudeTerracotta,
-                title = "Photo / Image",
-                subtitle = "Attach an image for multimodal vision & analysis",
-                onClick = {
-                    onDismiss()
-                    onPickImage()
+            // 1. Header Row (Height 56dp, Close "X" + Centered "Add to chat" + Balancer Spacer)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = "Close",
+                        tint = colorResource(id = R.color.attach_sheet_icon_tint),
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
-            )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Add to chat",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = colorResource(id = R.color.attach_sheet_text_primary),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f)
+                )
 
-            AttachmentOptionRow(
-                icon = Icons.Outlined.Description,
-                iconColor = GeminiBlue,
-                title = "Document / File",
-                subtitle = "Attach a PDF, text, or binary file from your device",
-                onClick = {
-                    onDismiss()
-                    onPickFile()
-                }
-            )
+                Spacer(modifier = Modifier.size(48.dp))
+            }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 2. Quick Action Tiles Row (Camera, Photos, Files)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                QuickActionTile(
+                    label = "Camera",
+                    icon = Icons.Outlined.PhotoCamera,
+                    onClick = {
+                        onDismiss()
+                        onTakePhoto()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+
+                QuickActionTile(
+                    label = "Photos",
+                    icon = Icons.Outlined.Image,
+                    onClick = {
+                        onDismiss()
+                        onPickImage()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+
+                QuickActionTile(
+                    label = "Files",
+                    icon = Icons.Outlined.UploadFile,
+                    onClick = {
+                        onDismiss()
+                        onPickFile()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // 3. List Rows (Model row, 12dp below tiles)
             if (onSelectModel != null) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                AttachmentOptionRow(
+                val subtitleText = if (!currentModelName.isNullOrBlank()) {
+                    currentModelName
+                } else {
+                    "Select active AI model"
+                }
+
+                AttachmentListRow(
+                    title = "Model",
+                    subtitle = subtitleText,
                     icon = Icons.Outlined.AutoAwesome,
-                    iconColor = Color(0xFFD97706),
-                    title = if (!currentModelName.isNullOrBlank()) "Model: $currentModelName" else "Switch AI Model",
-                    subtitle = "Change active LLM model or thinking preference",
                     onClick = {
                         onDismiss()
                         onSelectModel()
@@ -96,59 +179,168 @@ fun AttachmentSelectorBottomSheet(
     }
 }
 
+/**
+ * Clean minimal quick action tile (Camera, Photos, Files).
+ * Features a 48dp circle with outline icon, label below, and subtle press scale feedback.
+ */
 @Composable
-private fun AttachmentOptionRow(
+private fun QuickActionTile(
+    label: String,
     icon: ImageVector,
-    iconColor: Color,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "tileScale"
+    )
+    val haptic = LocalHapticFeedback.current
+
     Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
+        shape = RoundedCornerShape(24.dp),
+        color = colorResource(id = R.color.attach_sheet_card_bg),
+        interactionSource = interactionSource,
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .defaultMinSize(minHeight = 104.dp)
+            .semantics { role = Role.Button }
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(vertical = 14.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(iconColor.copy(alpha = 0.15f)),
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(colorResource(id = R.color.attach_sheet_circle_bg)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = iconColor,
+                    tint = colorResource(id = R.color.attach_sheet_icon_tint),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = label,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Normal,
+                color = colorResource(id = R.color.attach_sheet_text_primary),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/**
+ * Minimal rounded card list row (e.g. Model selection).
+ * Features a 44dp circle leading icon, title + subtitle, and trailing chevron.
+ */
+@Composable
+private fun AttachmentListRow(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "rowScale"
+    )
+    val haptic = LocalHapticFeedback.current
+
+    Surface(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
+        shape = RoundedCornerShape(24.dp),
+        color = colorResource(id = R.color.attach_sheet_card_bg),
+        interactionSource = interactionSource,
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .defaultMinSize(minHeight = 72.dp)
+            .semantics { role = Role.Button }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(colorResource(id = R.color.attach_sheet_circle_bg)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = colorResource(id = R.color.attach_sheet_icon_tint),
                     modifier = Modifier.size(22.dp)
                 )
             }
 
             Spacer(modifier = Modifier.width(14.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = title,
-                    fontSize = 14.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = colorResource(id = R.color.attach_sheet_text_primary)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = subtitle,
-                    fontSize = 11.5.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = colorResource(id = R.color.attach_sheet_text_secondary),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint = colorResource(id = R.color.attach_sheet_chevron_tint),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

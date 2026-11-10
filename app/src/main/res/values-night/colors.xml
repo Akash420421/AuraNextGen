@@ -9,4 +9,13 @@
     <color name="input_pill_action_bg">#FFFFFF</color>
     <color name="input_pill_action_tint">#111827</color>
     <color name="input_pill_placeholder">#9E9EA0</color>
+    <!-- Add to Chat Attachment Bottom Sheet Tokens (Dark Mode) -->
+    <color name="attach_sheet_bg">#1C1C1E</color>
+    <color name="attach_sheet_card_bg">#2A2A2C</color>
+    <color name="attach_sheet_circle_bg">#3A3A3C</color>
+    <color name="attach_sheet_icon_tint">#E5E5E7</color>
+    <color name="attach_sheet_text_primary">#E5E5E7</color>
+    <color name="attach_sheet_text_secondary">#9E9EA2</color>
+    <color name="attach_sheet_drag_handle">#48484A</color>
+    <color name="attach_sheet_chevron_tint">#8E8E93</color>
 </resources>
