@@ -29,8 +29,9 @@ var upgrader = websocket.Upgrader{
 //	GET    /api/claude/info[?refresh=1]         `initialize` response (models, commands, account)
 //	POST   /api/claude/auth/logout              `claude auth logout`
 //	GET    /api/claude/sessions                 session list for the sidebar
-//	GET    /api/claude/sessions/{id}/history    main-chain transcript entries + live state
+//	GET    /api/claude/sessions/{id}/history    main-chain transcript entries + live state (?full=1: also the live part)
 //	POST   /api/claude/sessions/{id}/title      {"title": "..."}
+//	POST   /api/claude/sessions/{id}/archive    {"archived": true|false} (kept by the bridge, see archive.go)
 //	POST   /api/claude/sessions/{id}/kill       stop the process
 //	POST   /api/claude/sessions/{id}/rewind     {"before": "<prompt uuid>"} edit an earlier prompt in place
 //	POST   /api/claude/sessions/{id}/fork       {"new_id", "title"} copy the chat under a new id
@@ -117,12 +118,16 @@ func (m *Manager) handleSessionREST(w http.ResponseWriter, r *http.Request, rest
 			writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "restarted": true})
 		}
 	case action == "history" && r.Method == http.MethodGet:
+		// full=1: everything the transcript holds so far, also while the chat's process is live (a read without
+		// attaching: export, Jarvis reading a task's reply). Without it a live process' part is left out, because an
+		// attaching client gets it from the session's event stream.
+		full := r.URL.Query().Get("full") == "1"
 		st := SessionState{}
 		var maxBytes int64
 		var cut *string
 		if s := m.Existing(id); s != nil {
 			st = s.State()
-			if st.Live {
+			if st.Live && !full {
 				maxBytes = st.HistoryOffset
 				if maxBytes == 0 {
 					maxBytes = -1 // new session: everything comes from the live buffer
@@ -157,6 +162,23 @@ func (m *Manager) handleSessionREST(w http.ResponseWriter, r *http.Request, rest
 		}
 		if err := m.RenameSession(id, strings.TrimSpace(body.Title)); err != nil {
 			writeJSON(w, http.StatusNotFound, map[string]interface{}{"success": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]interface{}{"success": true})
+	case action == "archive" && r.Method == http.MethodPost:
+		var body struct {
+			Archived *bool `json:"archived"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Archived == nil {
+			writeJSON(w, http.StatusBadRequest, map[string]interface{}{"success": false, "error": "archived (true/false) required"})
+			return
+		}
+		if *body.Archived && m.FindTranscript(id) == "" {
+			writeJSON(w, http.StatusNotFound, map[string]interface{}{"success": false, "error": "session not found"})
+			return
+		}
+		if err := m.SetSessionArchived(id, *body.Archived); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]interface{}{"success": true})

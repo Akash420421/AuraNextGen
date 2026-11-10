@@ -16,7 +16,7 @@ class AgentPreferences(context: Context) {
     private val _enabled = MutableStateFlow(read(prefs))
     val enabled: StateFlow<Set<AgentKind>> = _enabled.asStateFlow()
 
-    private val _hasChosen = MutableStateFlow(prefs.getBoolean(KEY_CHOSEN, true))
+    private val _hasChosen = MutableStateFlow(prefs.getBoolean(KEY_CHOSEN, false))
     /** The first-launch agent choice was made. */
     val hasChosen: StateFlow<Boolean> = _hasChosen.asStateFlow()
 
@@ -44,7 +44,7 @@ class AgentPreferences(context: Context) {
 
         /** The first-launch agent choice was made, read synchronously (the server does not start before it). */
         fun hasChosenSync(context: Context): Boolean =
-            context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CHOSEN, true)
+            context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CHOSEN, false)
 
         /** Enabled agents, read synchronously (bridge launch). */
         fun enabledSync(context: Context): Set<AgentKind> =
@@ -57,6 +57,7 @@ class AgentPreferences(context: Context) {
                 if (AgentKind.AGY !in enabled) append(" --no-hub")
                 if (AgentKind.CLAUDE !in enabled) append(" --no-claude")
                 if (AgentKind.OPENCODE !in enabled) append(" --no-opencode")
+                if (AgentKind.CODEX !in enabled) append(" --no-codex")
             }
         }
     }

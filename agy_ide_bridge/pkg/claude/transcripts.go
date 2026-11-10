@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"html"
 	"io"
 	"os"
 	"path/filepath"
@@ -43,6 +44,7 @@ type SessionSummary struct {
 	Live       bool   `json:"live"`
 	Busy       bool   `json:"busy"`
 	SizeBytes  int64  `json:"size_bytes"`
+	Archived   bool   `json:"archived"`
 }
 
 type transcriptLine struct {
@@ -65,6 +67,7 @@ type transcriptLine struct {
 func (m *Manager) ListSessions() []SessionSummary {
 	files, _ := filepath.Glob(filepath.Join(m.ProjectsDir(), "*", "*.jsonl"))
 	live := m.Snapshot()
+	archived := m.ArchivedSessions()
 	out := make([]SessionSummary, 0, len(files))
 	for _, f := range files {
 		name := filepath.Base(f)
@@ -85,6 +88,7 @@ func (m *Manager) ListSessions() []SessionSummary {
 			sum.CreatedAt = sum.UpdatedAt
 		}
 		sum.SizeBytes = fi.Size()
+		_, sum.Archived = archived[sum.ID]
 		if st, ok := live[sum.ID]; ok {
 			sum.Live = st.Live
 			sum.Busy = st.Busy
@@ -149,14 +153,16 @@ func summarize(path string, size int64) (SessionSummary, bool) {
 	if firstPrompt == "" && sum.LastPrompt == "" {
 		return sum, false
 	}
+	// an AI title made from a prompt can quote the app's hidden blocks too
+	sum.Title = strings.TrimSpace(stripAppBlocks(sum.Title))
 	if sum.Title == "" {
 		sum.Title = firstPrompt
 		if sum.Title == "" {
-			sum.Title = sum.LastPrompt
+			sum.Title = cleanPrompt(sum.LastPrompt)
 		}
 	}
 	sum.Title = oneLine(sum.Title, 80)
-	sum.LastPrompt = oneLine(sum.LastPrompt, 120)
+	sum.LastPrompt = oneLine(cleanPrompt(sum.LastPrompt), 120)
 	return sum, true
 }
 
@@ -228,7 +234,31 @@ func cleanPrompt(s string) string {
 			return strings.TrimSpace(s[strings.Index(s, ">")+1 : i])
 		}
 	}
-	return strings.TrimSpace(tagBlockRe.ReplaceAllString(s, ""))
+	return strings.TrimSpace(tagBlockRe.ReplaceAllString(stripAppBlocks(s), ""))
+}
+
+// The app's own hidden parts of a prompt (attached files, plugin guides, global context) never belong in a title.
+var (
+	expansionRe     = regexp.MustCompile(`(?s)<antigem-expansion command="([^"]*)">.*?</antigem-expansion>`)
+	attachedFilesRe = regexp.MustCompile(`(?s)<attached-files>.*?</attached-files>`)
+)
+
+// stripAppBlocks keeps only what the user typed: an expanded command shows as the command (a hidden block as nothing),
+// and a block cut off before its end tag is dropped from where it starts.
+func stripAppBlocks(s string) string {
+	if !strings.Contains(s, "<antigem-expansion") && !strings.Contains(s, "<attached-files>") {
+		return s
+	}
+	s = expansionRe.ReplaceAllStringFunc(s, func(m string) string {
+		return html.UnescapeString(expansionRe.FindStringSubmatch(m)[1])
+	})
+	s = attachedFilesRe.ReplaceAllString(s, "")
+	for _, open := range []string{"<antigem-expansion", "<attached-files>"} {
+		if i := strings.Index(s, open); i >= 0 {
+			s = s[:i]
+		}
+	}
+	return s
 }
 
 func oneLine(s string, max int) string {
@@ -364,6 +394,7 @@ func (m *Manager) DeleteSession(id string) error {
 	m.removeAttachments(id)
 	m.clearRewind(id)
 	m.rememberSessionModel(id, "")
+	_ = m.SetSessionArchived(id, false)
 	path := m.FindTranscript(id)
 	if path == "" {
 		return nil

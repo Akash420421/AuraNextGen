@@ -90,6 +90,9 @@ class AuthPreferences(private val context: Context) {
         /** Where the official OpenCode installer (and the app's own installer) puts it. */
         const val DEFAULT_OPENCODE_BINARY_PATH = "~/.opencode/bin/opencode"
         const val DEFAULT_UBUNTU_OPENCODE_BINARY_PATH = "/root/.opencode/bin/opencode"
+        /** Codex: the Termux package (`pkg install codex`) on com.termux; the official build's ~/.local/bin in Ubuntu. */
+        const val DEFAULT_CODEX_BINARY_PATH = "~/../usr/bin/codex"
+        const val DEFAULT_UBUNTU_CODEX_BINARY_PATH = "/root/.local/bin/codex"
 
         const val TOKEN_PREFIX = "x-ag"
         const val TOKEN_SUFFIX = "_9qx"
@@ -152,8 +155,8 @@ class AuthPreferences(private val context: Context) {
         private const val LEGACY_HUB_URL = "http://127.0.0.1:1235"
         private const val LEGACY_BRIDGE_HTTP_URL = "http://127.0.0.1:1234"
 
-        fun migrateHubUrl(url: String): String = if (url.trimEnd('/') == LEGACY_HUB_URL || (com.example.gemini.BuildConfig.HUB_PORT != 1235 && url.trimEnd('/') == "http://127.0.0.1:1235")) DEFAULT_HUB_URL else url
-        fun migrateBridgeUrl(url: String): String = if (url.trimEnd('/') == LEGACY_BRIDGE_HTTP_URL || (com.example.gemini.BuildConfig.BRIDGE_PORT != 1234 && url.trimEnd('/') == "http://127.0.0.1:1234")) DEFAULT_BRIDGE_HTTP_URL else url
+        fun migrateHubUrl(url: String): String = if (url.trimEnd('/') == LEGACY_HUB_URL) DEFAULT_HUB_URL else url
+        fun migrateBridgeUrl(url: String): String = if (url.trimEnd('/') == LEGACY_BRIDGE_HTTP_URL) DEFAULT_BRIDGE_HTTP_URL else url
 
         @Volatile
         var currentHubUrl: String = DEFAULT_HUB_URL
@@ -261,16 +264,8 @@ class AuthPreferences(private val context: Context) {
     init {
         val savedHub = syncPrefs.getString("agy_hub_url", null)
         val savedBridgeHttp = syncPrefs.getString("agy_bridge_http_url", null)
-        if (!savedHub.isNullOrBlank()) {
-            val migrated = migrateHubUrl(savedHub)
-            currentHubUrl = migrated
-            if (migrated != savedHub) syncPrefs.edit().putString("agy_hub_url", migrated).apply()
-        }
-        if (!savedBridgeHttp.isNullOrBlank()) {
-            val migrated = migrateBridgeUrl(savedBridgeHttp)
-            currentBridgeHttpUrl = migrated
-            if (migrated != savedBridgeHttp) syncPrefs.edit().putString("agy_bridge_http_url", migrated).apply()
-        }
+        if (!savedHub.isNullOrBlank()) currentHubUrl = migrateHubUrl(savedHub)
+        if (!savedBridgeHttp.isNullOrBlank()) currentBridgeHttpUrl = migrateBridgeUrl(savedBridgeHttp)
         val inspectorOn = syncPrefs.getBoolean("is_network_inspector_enabled", false)
         val inspectorFloating = syncPrefs.getBoolean("is_floating_network_inspector_enabled", false)
         com.example.gemini.data.remote.inspector.NetworkInspectorManager.isEnabled = inspectorOn
@@ -673,13 +668,15 @@ class AuthPreferences(private val context: Context) {
     fun getRemoteAgyBinSync(): String = syncPrefs.getString("remote_agy_bin", "") ?: ""
     fun getRemoteClaudeBinSync(): String = syncPrefs.getString("remote_claude_bin", "") ?: ""
     fun getRemoteOpenCodeBinSync(): String = syncPrefs.getString("remote_opencode_bin", "") ?: ""
+    fun getRemoteCodexBinSync(): String = syncPrefs.getString("remote_codex_bin", "") ?: ""
 
-    fun saveRemoteBinariesSync(bridge: String, agy: String, claude: String, openCode: String = getRemoteOpenCodeBinSync()) {
+    fun saveRemoteBinariesSync(bridge: String, agy: String, claude: String, openCode: String = getRemoteOpenCodeBinSync(), codex: String = getRemoteCodexBinSync()) {
         syncPrefs.edit()
             .putString("remote_bridge_bin", bridge.trim())
             .putString("remote_agy_bin", agy.trim())
             .putString("remote_claude_bin", claude.trim())
             .putString("remote_opencode_bin", openCode.trim())
+            .putString("remote_codex_bin", codex.trim())
             .apply()
     }
 
@@ -1007,10 +1004,10 @@ class AuthPreferences(private val context: Context) {
     }
 
     fun getDefaultBridgeBinaryPath(): String =
-        if (com.example.gemini.data.local.LocalEnvironmentManager.isTermuxPackage(context)) DEFAULT_BRIDGE_BINARY_PATH else DEFAULT_UBUNTU_BRIDGE_BINARY_PATH
+        if (context.packageName == "com.termux") DEFAULT_BRIDGE_BINARY_PATH else DEFAULT_UBUNTU_BRIDGE_BINARY_PATH
 
     fun getDefaultAgyBinaryPath(): String =
-        if (com.example.gemini.data.local.LocalEnvironmentManager.isTermuxPackage(context)) DEFAULT_AGY_BINARY_PATH else DEFAULT_UBUNTU_AGY_BINARY_PATH
+        if (context.packageName == "com.termux") DEFAULT_AGY_BINARY_PATH else DEFAULT_UBUNTU_AGY_BINARY_PATH
 
     val agyBridgeBinaryPath: Flow<String> = context.dataStore.data.map {
         it[AGY_BRIDGE_BINARY_PATH] ?: getAgyBridgeBinaryPathSync()
@@ -1039,7 +1036,7 @@ class AuthPreferences(private val context: Context) {
     }
 
     fun getDefaultClaudeBinaryPath(): String =
-        if (com.example.gemini.data.local.LocalEnvironmentManager.isTermuxPackage(context)) DEFAULT_CLAUDE_BINARY_PATH else DEFAULT_UBUNTU_CLAUDE_BINARY_PATH
+        if (context.packageName == "com.termux") DEFAULT_CLAUDE_BINARY_PATH else DEFAULT_UBUNTU_CLAUDE_BINARY_PATH
 
     fun getClaudeBinaryPathSync(): String =
         syncPrefs.getString("claude_binary_path", getDefaultClaudeBinaryPath()) ?: getDefaultClaudeBinaryPath()
@@ -1051,13 +1048,23 @@ class AuthPreferences(private val context: Context) {
     }
 
     fun getDefaultOpenCodeBinaryPath(): String =
-        if (com.example.gemini.data.local.LocalEnvironmentManager.isTermuxPackage(context)) DEFAULT_OPENCODE_BINARY_PATH else DEFAULT_UBUNTU_OPENCODE_BINARY_PATH
+        if (context.packageName == "com.termux") DEFAULT_OPENCODE_BINARY_PATH else DEFAULT_UBUNTU_OPENCODE_BINARY_PATH
 
     fun getOpenCodeBinaryPathSync(): String =
         syncPrefs.getString("opencode_binary_path", getDefaultOpenCodeBinaryPath()) ?: getDefaultOpenCodeBinaryPath()
 
     fun saveOpenCodeBinaryPath(path: String) {
         syncPrefs.edit().putString("opencode_binary_path", path.trim().ifBlank { getDefaultOpenCodeBinaryPath() }).apply()
+    }
+
+    fun getDefaultCodexBinaryPath(): String =
+        if (context.packageName == "com.termux") DEFAULT_CODEX_BINARY_PATH else DEFAULT_UBUNTU_CODEX_BINARY_PATH
+
+    fun getCodexBinaryPathSync(): String =
+        syncPrefs.getString("codex_binary_path", getDefaultCodexBinaryPath()) ?: getDefaultCodexBinaryPath()
+
+    fun saveCodexBinaryPath(path: String) {
+        syncPrefs.edit().putString("codex_binary_path", path.trim().ifBlank { getDefaultCodexBinaryPath() }).apply()
     }
 
     val hasSeenTerminalLauncherOnboarding: Flow<Boolean> = context.dataStore.data.map {

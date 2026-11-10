@@ -10,46 +10,49 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
 /**
- * Clean, thin-stroke staggered 3-line menu icon (☰) matching reference design.
- * - Line 1: length 18dp (y=6dp, x: 3dp..21dp)
- * - Line 2: length 13dp (y=12dp, x: 3dp..16dp)
- * - Line 3: length 8dp  (y=18dp, x: 3dp..11dp)
- * - Stroke: 1.8dp with rounded caps, #111827
+ * Clean, bold three-horizontal-line Hamburger Menu icon (☰) matching reference design.
+ * - Three bold, smooth black lines with rounded ends.
+ * - Consistent spacing and proper proportions, centered inside 26dp x 26dp canvas.
+ * - Stroke width: 2.2dp, #111827
  */
 @Composable
 fun StaggeredMenuIcon(
     modifier: Modifier = Modifier,
     tint: Color = Color(0xFF111827)
 ) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val strokePx = 1.8.dp.toPx()
+    Canvas(modifier = modifier.size(26.dp)) {
+        val strokePx = 2.2.dp.toPx()
         val cap = StrokeCap.Round
+        val startX = 3.5.dp.toPx()
+        val endX = 22.5.dp.toPx()
 
-        // Line 1: 18dp (x: 3dp to 21dp, y: 6dp)
+        // Top line
         drawLine(
             color = tint,
-            start = Offset(3.dp.toPx(), 6.dp.toPx()),
-            end = Offset(21.dp.toPx(), 6.dp.toPx()),
+            start = Offset(startX, 6.dp.toPx()),
+            end = Offset(endX, 6.dp.toPx()),
             strokeWidth = strokePx,
             cap = cap
         )
-        // Line 2: 13dp (x: 3dp to 16dp, y: 12dp)
+        // Middle line
         drawLine(
             color = tint,
-            start = Offset(3.dp.toPx(), 12.dp.toPx()),
-            end = Offset(16.dp.toPx(), 12.dp.toPx()),
+            start = Offset(startX, 13.dp.toPx()),
+            end = Offset(endX, 13.dp.toPx()),
             strokeWidth = strokePx,
             cap = cap
         )
-        // Line 3: 8dp (x: 3dp to 11dp, y: 18dp)
+        // Bottom line
         drawLine(
             color = tint,
-            start = Offset(3.dp.toPx(), 18.dp.toPx()),
-            end = Offset(11.dp.toPx(), 18.dp.toPx()),
+            start = Offset(startX, 20.dp.toPx()),
+            end = Offset(endX, 20.dp.toPx()),
             strokeWidth = strokePx,
             cap = cap
         )
@@ -57,52 +60,85 @@ fun StaggeredMenuIcon(
 }
 
 /**
- * Generously rounded chat bubble outline with clean '+' badge in top-right corner.
- * - Size: 24dp x 24dp
- * - Corner radius: 6.5dp for smooth pebble contour
- * - Stroke: 1.8dp with StrokeCap.Round, StrokeJoin.Round, #111827
+ * Clean overlapping double-chat-bubble icon with a '+' symbol matching reference design.
+ * - Back chat bubble slightly offset to top-right.
+ * - Front primary chat bubble with speech tail.
+ * - Clear, centered '+' symbol inside the front bubble to represent creating a new chat.
+ * - Consistent bold stroke (2.0dp) matching the Hamburger Menu lines.
  */
 @Composable
 fun NewChatIcon(
     modifier: Modifier = Modifier,
-    tint: Color = Color(0xFF111827)
+    tint: Color = Color(0xFF111827),
+    backgroundColor: Color = Color.White
 ) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val strokePx = 1.8.dp.toPx()
-        val cap = StrokeCap.Round
+    Canvas(modifier = modifier.size(26.dp)) {
+        val strokePx = 2.0.dp.toPx()
         val stroke = Stroke(
             width = strokePx,
-            cap = cap,
-            join = androidx.compose.ui.graphics.StrokeJoin.Round
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round
         )
 
-        // Generously rounded chat bubble body
-        val bubblePath = Path().apply {
+        // 1. Back chat bubble path (offset to top-right)
+        val backBubblePath = Path().apply {
             addRoundRect(
                 RoundRect(
-                    left = 2.5.dp.toPx(),
-                    top = 5.dp.toPx(),
-                    right = 17.5.dp.toPx(),
-                    bottom = 18.5.dp.toPx(),
-                    cornerRadius = CornerRadius(6.5.dp.toPx(), 6.5.dp.toPx())
+                    left = 9.dp.toPx(),
+                    top = 3.dp.toPx(),
+                    right = 23.dp.toPx(),
+                    bottom = 15.dp.toPx(),
+                    cornerRadius = CornerRadius(4.5.dp.toPx(), 4.5.dp.toPx())
                 )
             )
-            // Speech tail at bottom-left
-            moveTo(6.dp.toPx(), 18.5.dp.toPx())
-            lineTo(3.5.dp.toPx(), 21.5.dp.toPx())
-            lineTo(9.5.dp.toPx(), 18.5.dp.toPx())
+            // Speech tail at bottom-right of back bubble
+            moveTo(19.5.dp.toPx(), 15.dp.toPx())
+            lineTo(22.5.dp.toPx(), 18.5.dp.toPx())
+            lineTo(21.5.dp.toPx(), 14.5.dp.toPx())
         }
 
+        // Draw back bubble stroke
         drawPath(
-            path = bubblePath,
+            path = backBubblePath,
             color = tint,
             style = stroke
         )
 
-        // Clean '+' badge in top-right
-        val cx = 18.5.dp.toPx()
-        val cy = 5.5.dp.toPx()
-        val arm = 3.5.dp.toPx()
+        // 2. Front chat bubble path (offset to bottom-left)
+        val frontBubblePath = Path().apply {
+            addRoundRect(
+                RoundRect(
+                    left = 3.dp.toPx(),
+                    top = 7.5.dp.toPx(),
+                    right = 17.5.dp.toPx(),
+                    bottom = 19.5.dp.toPx(),
+                    cornerRadius = CornerRadius(4.5.dp.toPx(), 4.5.dp.toPx())
+                )
+            )
+            // Speech tail at bottom-left of front bubble
+            moveTo(6.5.dp.toPx(), 19.5.dp.toPx())
+            lineTo(3.5.dp.toPx(), 23.dp.toPx())
+            lineTo(9.5.dp.toPx(), 19.5.dp.toPx())
+        }
+
+        // Fill front bubble with background color to cleanly mask overlapping back bubble lines
+        drawPath(
+            path = frontBubblePath,
+            color = backgroundColor,
+            style = Fill
+        )
+
+        // Draw front bubble stroke
+        drawPath(
+            path = frontBubblePath,
+            color = tint,
+            style = stroke
+        )
+
+        // 3. Clean '+' symbol centered inside the front chat bubble
+        val cx = 10.25.dp.toPx()
+        val cy = 13.5.dp.toPx()
+        val arm = 2.8.dp.toPx()
 
         // Horizontal line of '+'
         drawLine(
@@ -110,7 +146,7 @@ fun NewChatIcon(
             start = Offset(cx - arm, cy),
             end = Offset(cx + arm, cy),
             strokeWidth = strokePx,
-            cap = cap
+            cap = StrokeCap.Round
         )
         // Vertical line of '+'
         drawLine(
@@ -118,7 +154,7 @@ fun NewChatIcon(
             start = Offset(cx, cy - arm),
             end = Offset(cx, cy + arm),
             strokeWidth = strokePx,
-            cap = cap
+            cap = StrokeCap.Round
         )
     }
 }

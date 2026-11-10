@@ -35,6 +35,8 @@ import androidx.compose.material.icons.automirrored.outlined.Login
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -1853,6 +1855,24 @@ private fun ChatHistoryItemRow(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
+                if (claudeActions != null) {
+                    DropdownMenuItem(
+                        text = { Text(if (conv.archived) "Unarchive" else "Archive", fontSize = 13.5.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = if (conv.archived) Icons.Outlined.Unarchive else Icons.Outlined.Archive,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            claudeActions.archive(conv.id, !conv.archived)
+                            AppToastHelper.showToast(if (conv.archived) "Chat unarchived" else "Chat archived", ChatToastType.SUCCESS)
+                        }
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text("Export Markdown (.md)", fontSize = 13.5.sp) },
                     leadingIcon = {
@@ -1931,6 +1951,24 @@ private fun ChatHistoryItemRow(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
+                if (claudeActions != null) {
+                    DropdownMenuItem(
+                        text = { Text(if (conv.archived) "Unarchive" else "Archive", fontSize = 13.5.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = if (conv.archived) Icons.Outlined.Unarchive else Icons.Outlined.Archive,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            claudeActions.archive(conv.id, !conv.archived)
+                            AppToastHelper.showToast(if (conv.archived) "Chat unarchived" else "Chat archived", ChatToastType.SUCCESS)
+                        }
+                    )
+                }
                 DropdownMenuItem(
                     text = {
                         Text(
@@ -2425,5 +2463,7 @@ class ClaudeDrawerActions(
     val loadMessages: suspend (String) -> List<com.example.gemini.domain.model.ChatMessage>,
     val rename: (String, String) -> Unit,
     /** Stops the chat's process (when idle) so its next message starts one with the current provider settings; the callback gets a message. */
-    val restart: (String, (String) -> Unit) -> Unit
+    val restart: (String, (String) -> Unit) -> Unit,
+    /** Archives (true) or unarchives (false) a chat of any agent. */
+    val archive: (String, Boolean) -> Unit = { _, _ -> }
 )

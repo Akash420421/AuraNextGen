@@ -1,16 +1,17 @@
 {
-  "version_code": 128,
-  "version_name": "1.2.5",
+  "version_code": 129,
+  "version_name": "1.2.6",
   "min_supported_version_code": 1,
   "changelog": [
-    "Grok-style 8-dot circular chasing spinner thinking animation with shimmering text",
-    "Clean collapsed thought block showing only '> Thought for X.Xs' with no preview snippet",
-    "Inline image generation skeleton loader with 3 animated cycling stages",
-    "Direct inline rendering of generated images in chat with top-right share and action bar",
-    "Full-screen blurred-backdrop image lightbox with working Share, Copy, and Save capsule buttons",
-    "Smooth feather gradients eliminating bottom input bar cut line and text bleed",
-    "Pebble-rounded new chat icon with 6.5dp corner radius",
-    "Restored Part 7 Three.js 3D particle orb on Voice screen with touch rotation"
+    "Antigravity live voice calling integration with time-based dynamic greeting and real-time audio reactivity",
+    "Single-tap mic mute (background call persistence) and double-tap end call gestures on Tap to Start",
+    "Redesigned top navigation header with clean 3-line hamburger menu and overlapping double chat bubble with plus icon",
+    "Voice Mode Setting button with natural voice picker (Arlo, Fola, Cleo, etc.) and audio preview",
+    "Streamed large file upload ('From Files') support without memory pressure",
+    "New Codex coding agent integration with full MCP support",
+    "On-device Android development support for Compose, Flutter, and React Native",
+    "Reverse Engineering Anything (REA) tools and Google Cloud agents integration",
+    "32-bit (armeabi-v7a) device compatibility"
   ],
   "is_critical": false
 }

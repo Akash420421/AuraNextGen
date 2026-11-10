@@ -87,7 +87,11 @@ data class ChatMessage(
     val createdAt: Long = System.currentTimeMillis(),
     /** The model that wrote this reply, as the agent reports it (null when unknown). */
     val modelId: String? = null,
-    val isGeneratingImage: Boolean = false
+    val isGeneratingImage: Boolean = false,
+    /** A request an Antigravity voice call sent: [content] is what was said (the full prompt is in [rawContent]). */
+    val viaVoice: Boolean = false,
+    /** What the voice said while handing that request to the agent. */
+    val voiceLine: String? = null
 )
 
 @Serializable
@@ -102,7 +106,13 @@ data class ChatAttachment(
     val url: String? = null,
     val durationSeconds: Int = 0,
     val mimeType: String? = null,
-    val base64: String? = null
+    val base64: String? = null,
+    /**
+     * A file the agent opens in place: [path] is its real path on the agent's machine and it goes to the agent only as a
+     * line in the message's hidden `<attached-files>` list (see AttachedFiles). An image may also carry [base64], a
+     * shrunk copy the model sees directly. Never uploaded or inlined by the backends.
+     */
+    val reference: Boolean = false
 )
 
 @Serializable
@@ -125,8 +135,14 @@ data class Conversation(
     val subagentRole: String? = null,
     val subagentTypeName: String? = null,
     val nestingDepth: Int = 0,
-    val agent: AgentKind = AgentKind.AGY
-)
+    val agent: AgentKind = AgentKind.AGY,
+    /** Archived: listed only in the sidebar's archive view. */
+    val archived: Boolean = false,
+    /** An Antigravity cloud chat (Remote Agents): the cloud project it runs in; null = runs on the hub's machine. */
+    val cloudProjectId: String? = null
+) {
+    val isCloud: Boolean get() = cloudProjectId != null
+}
 
 /** A message sent while the agent was working, waiting to be delivered (shown in the queued-messages card). */
 data class QueuedMessage(
@@ -283,10 +299,23 @@ data class ModelQuota(
     val resetCountdown: String? = null,
     val weeklyRemainingFraction: Float? = null,
     val weeklyUsedPercentage: String? = null,
-    val weeklyResetCountdown: String? = null
+    val weeklyResetCountdown: String? = null,
+    /** Share left of the window the chat pill shows (5h or 7d, the user's choice; 7d when there is no 5h limit). */
+    val pillFraction: Float? = null,
+    val pillIsWeekly: Boolean = false,
+    /** The window comes with decimals (Antigravity), shown as "48.8%". */
+    val pillOneDecimal: Boolean = false
 ) {
     val percentage: Int
         get() = remainingFraction?.let { (it * 100).toInt() } ?: 0
+
+    /** Share left the chat pill shows, or null when this model has no limit to show. */
+    val pillRemaining: Float?
+        get() = pillFraction ?: remainingFraction
+
+    /** The chat pill's text, formatted exactly like the model picker's meters ("48.8%" for Antigravity, "75%" for Claude). */
+    val pillText: String?
+        get() = pillRemaining?.let { quotaPercentText(it, pillOneDecimal) }
 }
 
 @Serializable

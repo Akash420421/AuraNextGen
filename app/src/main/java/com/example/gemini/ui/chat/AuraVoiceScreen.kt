@@ -1,5 +1,6 @@
 package com.example.gemini.ui.chat
 
+import android.os.SystemClock
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,9 +11,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DesktopWindows
-import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material.icons.rounded.MicOff
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,16 +22,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.gemini.data.jarvis.JarvisController
-import com.example.gemini.data.jarvis.JarvisController.Phase
-import com.example.gemini.data.jarvis.JarvisPreferences
+import com.example.gemini.data.voice.AgyVoiceCall
+import com.example.gemini.data.voice.AgyVoicePreferences
 import com.example.gemini.ui.components.AuraModeToggle
 import com.example.gemini.ui.components.AuraOrbView
 import com.example.gemini.ui.components.NewChatIcon
 import com.example.gemini.ui.components.StaggeredMenuIcon
+import com.example.gemini.ui.voice.AgyVoicePickerDialog
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.util.Calendar
 
 @Composable
 fun AuraVoiceScreen(
@@ -38,8 +46,59 @@ fun AuraVoiceScreen(
     onNewChat: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val phase by JarvisController.phase.collectAsState()
-    val isAutoSend by JarvisPreferences.autoSend.state.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // Antigravity Voice Call state
+    val callState by AgyVoiceCall.state.collectAsState()
+    val micLevel by AgyVoiceCall.micLevel.collectAsState()
+    val voiceLevel by AgyVoiceCall.voiceLevel.collectAsState()
+
+    // Dialog state for Voice Settings
+    var showVoiceSettings by remember { mutableStateOf(false) }
+
+    // Tap tracking for Single-tap (Mute) vs Double-tap (End Call)
+    var lastTapTime by remember { mutableLongStateOf(0L) }
+    var pendingSingleTapJob by remember { mutableStateOf<Job?>(null) }
+
+    // 1. Dynamic Greeting based on time of day
+    val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+    val greetingText = remember(currentHour) {
+        when (currentHour) {
+            in 5..11 -> "Good Morning Sir,"
+            in 12..16 -> "Good Afternoon Sir,"
+            in 17..21 -> "Good Evening Sir,"
+            else -> "How are you Sir,"
+        }
+    }
+
+    // 2. Computed Orb phase for 3D Particle Orb
+    val orbPhase = remember(callState.phase, callState.muted, voiceLevel, callState.active) {
+        when {
+            !callState.active || callState.phase == AgyVoiceCall.Phase.IDLE -> JarvisController.Phase.IDLE
+            callState.phase == AgyVoiceCall.Phase.CONNECTING || callState.phase == AgyVoiceCall.Phase.RECONNECTING -> JarvisController.Phase.THINKING
+            callState.phase == AgyVoiceCall.Phase.LIVE -> {
+                if (callState.muted) JarvisController.Phase.IDLE
+                else if (voiceLevel > 0.05f) JarvisController.Phase.SPEAKING
+                else JarvisController.Phase.LISTENING
+            }
+            else -> JarvisController.Phase.IDLE
+        }
+    }
+
+    // 3. Subtext status
+    val statusSubtext = when {
+        !callState.active -> "Tap the orb to start conversation"
+        callState.phase == AgyVoiceCall.Phase.CONNECTING -> "Connecting…"
+        callState.phase == AgyVoiceCall.Phase.RECONNECTING -> "Reconnecting…"
+        callState.phase == AgyVoiceCall.Phase.LIVE -> {
+            if (callState.muted) "Microphone muted • Tap to unmute"
+            else if (voiceLevel > 0.05f) "Speaking…"
+            else "Listening to your voice…"
+        }
+        callState.phase == AgyVoiceCall.Phase.FAILED -> "Call disconnected • Tap to retry"
+        else -> "Tap the orb to start conversation"
+    }
 
     Column(
         modifier = modifier
@@ -49,28 +108,28 @@ fun AuraVoiceScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // --- Top Bar (Matching Reference Header) ---
+        // --- Top Bar (Centered AURA AI Header with 48dp Touch Targets) ---
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Left: Staggered 3-line Menu Icon
+            // Left: Hamburger Menu Icon (48dp Touch Area)
             Surface(
                 onClick = onOpenDrawer,
                 shape = CircleShape,
                 color = Color.Transparent,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     StaggeredMenuIcon(tint = Color(0xFF111827))
                 }
             }
 
-            // Center: App Title
+            // Center: App Title (Perfect Center Alignment)
             Text(
                 text = "AURA AI",
                 fontSize = 17.sp,
@@ -79,12 +138,12 @@ fun AuraVoiceScreen(
                 letterSpacing = (-0.2).sp
             )
 
-            // Right: New Chat Icon
+            // Right: Double Chat Bubble + Plus New Chat Icon (48dp Touch Area)
             Surface(
                 onClick = onNewChat,
                 shape = CircleShape,
                 color = Color.Transparent,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     NewChatIcon(tint = Color(0xFF111827))
@@ -98,19 +157,14 @@ fun AuraVoiceScreen(
             modifier = Modifier.padding(top = 8.dp)
         ) {
             Text(
-                text = "Hi Sir,",
+                text = greetingText,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF111827)
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = when (phase) {
-                    Phase.LISTENING -> "Listening to your voice…"
-                    Phase.THINKING -> "Thinking…"
-                    Phase.SPEAKING -> "Delivering response…"
-                    else -> "Tap the orb to start conversation"
-                },
+                text = statusSubtext,
                 fontSize = 14.5.sp,
                 color = Color(0xFF6B7280)
             )
@@ -124,13 +178,13 @@ fun AuraVoiceScreen(
         ) {
             AuraOrbView(
                 modifier = Modifier.fillMaxSize(),
-                phase = phase,
+                phase = orbPhase,
                 onOrbTapped = {
-                    when (phase) {
-                        Phase.LISTENING -> JarvisController.finishListening()
-                        Phase.SPEAKING -> JarvisController.silence()
-                        Phase.THINKING -> JarvisController.stopEverything()
-                        else -> JarvisController.onMicPressed()
+                    if (!callState.active || callState.phase == AgyVoiceCall.Phase.IDLE) {
+                        AgyVoiceCall.start(context, null)
+                    } else {
+                        // Toggle mute on orb tap as well
+                        AgyVoiceCall.toggleMute()
                     }
                 }
             )
@@ -139,28 +193,27 @@ fun AuraVoiceScreen(
         // --- Bottom Controls Section ---
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 20.dp)
+            modifier = Modifier.padding(bottom = 28.dp)
         ) {
-            // Segmented Toggle: [ Chat | Voice ]
+            // Chat / Voice Segmented Pill Switcher
             AuraModeToggle(
-                currentMode = "voice",
+                selectedMode = "voice",
                 onModeSelected = { mode ->
                     if (mode == "chat") onSwitchToChat()
                 }
             )
 
-            // Exact 20dp spacing below toggle
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // Bottom Action Row: [Screen]  [Tap to Start]  [Auto]
+            // Action Row: Screen | Tap to Start (Gesture-Controlled) | Setting
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // --- Left: Screen Button ---
+                // --- Left: Screen Share Button ---
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -192,29 +245,68 @@ fun AuraVoiceScreen(
                     )
                 }
 
-                // --- Center: Tap to Start Pill Button (156dp x 46dp) ---
-                val isBusy = phase == Phase.LISTENING || phase == Phase.THINKING || phase == Phase.SPEAKING
-                val pillText = when (phase) {
-                    Phase.LISTENING -> "Listening…"
-                    Phase.THINKING -> "Thinking…"
-                    Phase.SPEAKING -> "Speaking…"
+                // --- Center: Dynamic Tap to Start Pill Button (Single Tap: Mute, Double Tap: End Call) ---
+                val isCallActive = callState.active && callState.phase == AgyVoiceCall.Phase.LIVE
+                val isConnecting = callState.active && (callState.phase == AgyVoiceCall.Phase.CONNECTING || callState.phase == AgyVoiceCall.Phase.RECONNECTING)
+
+                val pillText = when {
+                    isConnecting -> "Connecting…"
+                    isCallActive -> {
+                        if (callState.muted) "Muted"
+                        else if (voiceLevel > 0.05f) "Speaking…"
+                        else "Listening…"
+                    }
+                    callState.phase == AgyVoiceCall.Phase.FAILED -> "Retry Call"
                     else -> "Tap to Start"
+                }
+
+                val pillTint = when {
+                    isConnecting -> Color(0xFFD97706) // Amber
+                    isCallActive -> {
+                        if (callState.muted) Color(0xFFDC2626) // Red for muted
+                        else if (voiceLevel > 0.05f) Color(0xFF059669) // Green for speaking
+                        else Color(0xFF1A73E8) // Blue for listening
+                    }
+                    callState.phase == AgyVoiceCall.Phase.FAILED -> Color(0xFFDC2626)
+                    else -> Color(0xFF1A73E8)
+                }
+
+                val pillIcon = when {
+                    isCallActive && callState.muted -> Icons.Rounded.MicOff
+                    isCallActive && voiceLevel > 0.05f -> Icons.Rounded.VolumeUp
+                    else -> Icons.Rounded.Mic
                 }
 
                 Box(
                     modifier = Modifier
-                        .width(156.dp)
+                        .width(160.dp)
                         .height(46.dp)
                         .shadow(elevation = 5.dp, shape = RoundedCornerShape(50), spotColor = Color(0x30000000))
                         .clip(RoundedCornerShape(50))
                         .background(Color.White)
                         .border(BorderStroke(0.5.dp, Color(0xFFEAECEF)), RoundedCornerShape(50))
                         .clickable {
-                            when (phase) {
-                                Phase.LISTENING -> JarvisController.finishListening()
-                                Phase.SPEAKING -> JarvisController.silence()
-                                Phase.THINKING -> JarvisController.stopEverything()
-                                else -> JarvisController.onMicPressed()
+                            if (!callState.active || callState.phase == AgyVoiceCall.Phase.IDLE || callState.phase == AgyVoiceCall.Phase.FAILED) {
+                                // Start call immediately
+                                AgyVoiceCall.start(context, null)
+                            } else {
+                                val now = SystemClock.uptimeMillis()
+                                if (now - lastTapTime < 340) {
+                                    // Double Tap Detected: End the Call immediately!
+                                    pendingSingleTapJob?.cancel()
+                                    pendingSingleTapJob = null
+                                    lastTapTime = 0L
+                                    AgyVoiceCall.end()
+                                } else {
+                                    // Potential Single Tap: Wait for double-tap window to elapse
+                                    lastTapTime = now
+                                    pendingSingleTapJob?.cancel()
+                                    pendingSingleTapJob = scope.launch {
+                                        delay(340)
+                                        // Confirmed Single Tap: Toggle Mic Mute (Call stays active in background)
+                                        AgyVoiceCall.toggleMute()
+                                    }
+                                }
                             }
                         },
                     contentAlignment = Alignment.Center
@@ -224,9 +316,9 @@ fun AuraVoiceScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = if (phase == Phase.SPEAKING) Icons.Rounded.Stop else Icons.Rounded.Mic,
+                            imageVector = pillIcon,
                             contentDescription = null,
-                            tint = Color(0xFF1A73E8),
+                            tint = pillTint,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -234,12 +326,12 @@ fun AuraVoiceScreen(
                             text = pillText,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1A73E8)
+                            color = pillTint
                         )
                     }
                 }
 
-                // --- Right: Auto Button ---
+                // --- Right: Setting Button (Opens Voice Selection & Call Preferences) ---
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -251,20 +343,20 @@ fun AuraVoiceScreen(
                             .background(Color.White)
                             .border(BorderStroke(0.5.dp, Color(0xFFEAECEF)), CircleShape)
                             .clickable {
-                                JarvisPreferences.autoSend.set(!isAutoSend)
+                                showVoiceSettings = true
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Language,
-                            contentDescription = "Auto",
-                            tint = if (isAutoSend) Color(0xFF1A73E8) else Color(0xFF1F2937),
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = "Setting",
+                            tint = Color(0xFF1F2937),
                             modifier = Modifier.size(22.dp)
                         )
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Auto",
+                        text = "Setting",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color(0xFF374151)
@@ -272,5 +364,20 @@ fun AuraVoiceScreen(
                 }
             }
         }
+    }
+
+    // Voice Picker & Settings Dialog
+    if (showVoiceSettings) {
+        AgyVoicePickerDialog(
+            initialVoice = AgyVoicePreferences.currentVoice(context),
+            onChoose = { selectedVoice ->
+                AgyVoicePreferences.setVoice(context, selectedVoice)
+                AgyVoiceCall.changeVoice(selectedVoice)
+                showVoiceSettings = false
+            },
+            onDismiss = {
+                showVoiceSettings = false
+            }
+        )
     }
 }

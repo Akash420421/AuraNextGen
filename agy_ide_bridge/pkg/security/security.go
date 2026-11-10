@@ -323,9 +323,9 @@ func AuthMiddleware(token string, next http.Handler) http.Handler {
 	rawHeaderName := BuildFramedHeader(token)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Allow health/ping endpoints without auth, as well as local loopback shutdown
+		// Allow health/ping endpoints without auth
 		path := r.URL.Path
-		if path == "/api/health" || path == "/health" || path == "/ping" || (path == "/api/shutdown" && net.ParseIP(clientIP(r)) != nil && net.ParseIP(clientIP(r)).IsLoopback()) {
+		if path == "/api/health" || path == "/health" || path == "/ping" {
 			next.ServeHTTP(w, r)
 			return
 		}

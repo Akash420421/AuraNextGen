@@ -96,7 +96,8 @@ class TrajectoryEngine {
         val step = runCatching { Step.ADAPTER.decode(m.step_payload) }.getOrNull()
         val input = step?.user_input ?: return@mapNotNull null
         val text = input.items.mapNotNull { it.text.takeIf { t -> t.isNotBlank() } }.joinToString("\n").ifBlank { input.query }
-        QueuedEntry(m.id, text, input.media, m.delivery_strategy, input.tags)
+        val shown = VoiceTurn.displayText(text, input.tags)
+        QueuedEntry(m.id, shown, if (shown != text) input.media.filterNot { it.mime_type.startsWith("audio/") } else input.media, m.delivery_strategy, input.tags)
     }
 
     /** A message sent with this `client_msg:` tag reached the trajectory (as a user-input step). */
@@ -247,7 +248,7 @@ class TrajectoryEngine {
             }
         }
 
-        val frameLastStepError = update.main_trajectory_update?.last_step_error
+        val frameLastStepError = update.main_trajectory_update?.last_step_error.realError()
 
         val terminationErrorMsg = when (liveTerminationReason) {
             ExecutorTerminationReason.EXECUTOR_TERMINATION_REASON_ERROR -> {
@@ -404,9 +405,7 @@ class TrajectoryEngine {
                     currentTurnSteps = mutableListOf()
                 }
 
-                val userText = extractUserText(step.user_input)
-                val attachments = extractUserAttachments(step.user_input, stepIndex)
-                completedTurns.add(ChatTurn.User(stepIndex = stepIndex, text = userText, attachments = attachments, createdAt = parseTimestampToMillis(step.metadata?.created_at)?.takeIf { it > 0 }))
+                completedTurns.add(userTurnOf(step, stepIndex))
                 lastUserStepArrayIndex = i
                 activeTurnStartStep = stepIndex + 1
             } else {
@@ -453,9 +452,7 @@ class TrajectoryEngine {
                 finalizeActiveTurn()
                 pendingUserTurn = null
 
-                val userText = extractUserText(step.user_input)
-                val attachments = extractUserAttachments(step.user_input, stepIndex)
-                val userTurn = ChatTurn.User(stepIndex = stepIndex, text = userText, attachments = attachments, createdAt = parseTimestampToMillis(step.metadata?.created_at)?.takeIf { it > 0 })
+                val userTurn = userTurnOf(step, stepIndex)
                 val existingIdx = completedTurns.indexOfFirst { it is ChatTurn.User && it.stepIndex == stepIndex }
                 if (existingIdx >= 0) {
                     completedTurns[existingIdx] = userTurn
@@ -664,7 +661,10 @@ class TrajectoryEngine {
                             content = turn.text,
                             attachments = turn.attachments,
                             stepIndex = turn.stepIndex,
-                            createdAt = turn.createdAt ?: System.currentTimeMillis()
+                            createdAt = turn.createdAt ?: System.currentTimeMillis(),
+                            viaVoice = turn.viaVoice,
+                            voiceLine = turn.voiceLine,
+                            rawContent = turn.rawText
                         )
                     )
                 }
@@ -893,11 +893,10 @@ class TrajectoryEngine {
             return
         }
 
-        val stepError = step.error_message?.error ?: step.error
+        val stepError = step.error_message?.error.realError() ?: step.error.realError()
         val isErrorType = step.type == CortexStepType.CORTEX_STEP_TYPE_ERROR_MESSAGE ||
                 step.status == CortexStepStatus.CORTEX_STEP_STATUS_ERROR ||
-                step.error_message != null ||
-                step.error != null
+                stepError != null
 
         if (isErrorType) {
             val userMsg = stepError?.user_error_message?.takeIf { it.isNotBlank() } ?: "Agent Execution Error"
@@ -1404,4 +1403,36 @@ class TrajectoryEngine {
         }
         return if (firstLine.isNotBlank() && firstLine.length <= 40) firstLine else "System Notification"
     }
+
+    /**
+     * The chat turn of a user-input step. A request sent by a voice call shows what was said (and the voice's line),
+     * without the call's prompt scaffolding or the speech clips; the full prompt stays in [ChatTurn.User.rawText].
+     */
+    private fun userTurnOf(step: Step, stepIndex: Int): ChatTurn.User {
+        val userText = extractUserText(step.user_input)
+        val tags = step.user_input?.tags.orEmpty()
+        val createdAt = parseTimestampToMillis(step.metadata?.created_at)?.takeIf { it > 0 }
+        val voice = VoiceTurn.parse(userText, tags)
+        val attachments = extractUserAttachments(step.user_input, stepIndex) +
+            com.example.gemini.data.files.AttachedFiles.extract(userText, "att_$stepIndex").second
+        if (voice == null) return ChatTurn.User(stepIndex = stepIndex, text = userText, attachments = attachments, createdAt = createdAt)
+        return ChatTurn.User(
+            stepIndex = stepIndex,
+            text = voice.spoken.ifBlank { "Voice request" },
+            attachments = attachments.filterNot { it.isAudio },
+            createdAt = createdAt,
+            viaVoice = true,
+            voiceLine = voice.voiceLine,
+            rawText = userText
+        )
+    }
+}
+
+/**
+ * The error, if it says anything. Cloud chats (Antigravity Remote Agents) send an empty `last_step_error` (and may send
+ * empty step errors) with every frame; taken as an error, every reply showed "Agent Execution Error" while it ran.
+ */
+internal fun CortexErrorDetails?.realError(): CortexErrorDetails? = this?.takeIf {
+    it.user_error_message.isNotBlank() || it.short_error.isNotBlank() || it.full_error.isNotBlank() ||
+        it.model_error_message.isNotBlank() || it.details.isNotBlank() || it.error_code != 0 || it.structured_error_parts.isNotEmpty()
 }
